@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const multer = require('multer');
+const exifReader = require('exif-reader')
 
 // const upload = multer({ dest: 'uploads/'})
 const storage = multer.memoryStorage();
@@ -26,7 +27,9 @@ app.post('/photo/new', upload.single('foto'), async (req, res, next) => {
   try {
     console.log(req.file)
     const meta = await sharp(req.file.buffer).metadata();
+    const exifMeta = exifReader(meta.exif);
     console.log(meta)
+    console.log(exifMeta)
     res.send('ok?')  
   } catch (err) {
     console.error(err)
