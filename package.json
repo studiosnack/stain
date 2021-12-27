@@ -1,0 +1,10 @@
+{
+  "name": "insta",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "volta": {
+    "node": "16.13.1",
+    "yarn": "1.22.17"
+  }
+}
