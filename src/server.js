@@ -8,6 +8,8 @@ const upload = multer({storage})
 
 const PORT = 3000;
 
+const sharp = require('sharp');
+
 app.get('/', (req, res) => {
   res.send(`
   <!doctype html>
@@ -19,9 +21,17 @@ app.get('/', (req, res) => {
   `)
 })
 
-app.post('/photo/new', upload.single('foto'), (req, res, next) => {
-  console.log(req.file)
-  res.send('ok!')
+app.post('/photo/new', upload.single('foto'), async (req, res, next) => {
+
+  try {
+    console.log(req.file)
+    const meta = await sharp(req.file.buffer).metadata();
+    console.log(meta)
+    res.send('ok?')  
+  } catch (err) {
+    console.error(err)
+    res.send('wuh woh');
+  }
 });
 
 console.log(`listening of ${PORT}`);
