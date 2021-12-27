@@ -6,5 +6,10 @@
   "volta": {
     "node": "16.13.1",
     "yarn": "1.22.17"
+  },
+  "dependencies": {
+    "express": "^4.17.2",
+    "multer": "^1.4.4",
+    "sharp": "^0.29.3"
   }
 }
