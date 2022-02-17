@@ -25,12 +25,16 @@ app.get('/', (req, res) => {
 app.post('/photo/new', upload.single('foto'), async (req, res, next) => {
 
   try {
-    console.log(req.file)
-    const meta = await sharp(req.file.buffer).metadata();
+    // console.log(req.file)
+    const buf = req.file.buffer;
+    const meta = await sharp(buf).metadata();
     const exifMeta = exifReader(meta.exif);
-    console.log(meta)
-    console.log(exifMeta)
-    res.send('ok?')  
+
+    // console.log(meta)
+    // console.log(exifMeta)
+    // create resized images here
+
+    res.send('ok?')
   } catch (err) {
     console.error(err)
     res.send('wuh woh');
