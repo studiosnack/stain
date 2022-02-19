@@ -78,7 +78,7 @@ type IGMedia = {
 type IGPost = {
   media: IGMedia[];
   title?: string;
-  created_on?: number;
+  creation_timestamp?: number;
 };
 type IGPosts = IGPost[];
 
@@ -113,9 +113,15 @@ const mediaInsertQuery = db.prepareQuery<
 const postInsertQuery = db.prepareQuery<
   [],
   Record<string, unknown>,
-  { id: string; title: string; media: string; user: string }
+  {
+    id: string;
+    title: string;
+    media: string;
+    user: string;
+    created_on: number | null;
+  }
 >(
-  "INSERT INTO posts (id, title, media, user) values (:id, :title, :media, :user)"
+  "INSERT INTO posts (id, title, media, user, created_on) values (:id, :title, :media, :user, :created_on)"
 );
 
 const addMedia = (media: IGMedia) => {
@@ -138,6 +144,7 @@ const addPost = (user: { id: string }, post: IGPost, media: string[]) => {
     title: post.title ?? "",
     media: JSON.stringify(media),
     user: user.id,
+    created_on: post.creation_timestamp ?? null,
   };
   postInsertQuery.execute(params);
   return params;
@@ -151,11 +158,12 @@ db.transaction(() => {
       break;
     }
 
-    const creationDate = new Date(post.media[0].creation_timestamp * 1000);
-    /*console.log(
-    `- got ${post.media.length} posts from ${formatter.format(creationDate)}`
-  );*/
-    let media = [];
+    const creationDate = post.media[0].creation_timestamp * 1000;
+    post.creation_timestamp = post.creation_timestamp
+      ? post.creation_timestamp * 1000
+      : creationDate;
+
+    const media = [];
     for (const medium of post.media) {
       const added = addMedia(medium);
       media.push(added.id);
@@ -166,5 +174,6 @@ db.transaction(() => {
 console.log("finished creating media");
 
 mediaInsertQuery.finalize();
+postInsertQuery.finalize();
 
 console.log(`\nall done!`);
