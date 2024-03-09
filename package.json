@@ -1,28 +1,57 @@
 {
   "name": "insta",
   "version": "1.0.0",
-  "main": "index.js",
   "license": "MIT",
   "volta": {
-    "node": "16.13.1",
-    "yarn": "1.22.17"
+    "node": "20.3.1",
+    "yarn": "1.22.19"
+  },
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "build:dev": "swc src --only **/*.ts --copy-files --out-dir dist",
+    "build:watch": "swc src --only **/*.ts --copy-files --out-dir dist --watch"
+  },
+  "targets": {
+    "frontend": {
+      "source": "src/views/app.pug",
+      "context": "browser",
+      "engines": {
+        "browsers": "> 0.5%, last 2 versions, not dead"
+      }
+    },
+    "server": {
+      "source": "src/server.js",
+      "context": "node",
+      "engines": {
+        "node": ">= 16"
+      }
+    }
   },
   "dependencies": {
     "@swc/helpers": "^0.3.8",
-    "@types/better-sqlite3": "^7.5.0",
-    "better-sqlite3": "^7.5.0",
+    "@types/better-sqlite3": "^7.6.5",
+    "better-sqlite3": "^8.6.0",
+    "dotenv": "^16.3.1",
     "exif-reader": "^1.0.3",
     "express": "^4.17.2",
-    "multer": "^1.4.4",
+    "express-session": "^1.17.3",
+    "multer": "1.4.5-lts.1",
     "nanoid": "^3.1.30",
-    "sharp": "^0.29.3",
+    "nodemon": "^2.0.21",
+    "pug": "^3.0.2",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "sharp": "0.32.1",
     "sqlite": "^4.0.25",
-    "sqlite3": "^5.0.2",
-    "typescript": "^4.6.2"
+    "sqlite3": "^5.0.2"
   },
   "devDependencies": {
     "@swc/cli": "^0.1.55",
     "@swc/core": "^1.2.158",
-    "parcel": "^2.2.0"
+    "@types/express": "^4.17.17",
+    "@types/express-session": "^1.17.7",
+    "@types/multer": "^1.4.7",
+    "prettier": "^2.8.8",
+    "typescript": "^4.6.2"
   }
 }

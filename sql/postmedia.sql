@@ -2,15 +2,19 @@
 select 
   posts.id as post_id, 
   posts.title as post_title, 
-  posts.created_on as p_co, 
+  posts.created_on as post_created_on,
   posts.metadata as post_meta,
+
+  mediapost.value as media_id,
+
   mediadata.created_on as m_co,
-  mediapost.value as media_id, 
-  mediadata.uri as media_uri
+  mediadata.uri as media_uri,
+  mediadata.title as media_title,
+  mediadata.caption as media_caption
   --mediadata.
 from 
   posts, 
   json_each(posts.media) as mediapost 
-left outer join media as mediadata 
-  on mediapost.value = mediadata.id 
-where posts.id='ogbnK'
+left join media as mediadata
+  on media_id = mediadata.id
+where posts.id='UEApm';

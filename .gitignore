@@ -1,2 +1,9 @@
 archives
 node_modules
+misc_not_backedup
+.parcel_cache/*
+.parcel-cache/*
+insta.db
+dist/*
+src/public/fonts/*.woff
+src/public/fonts/*.woff2

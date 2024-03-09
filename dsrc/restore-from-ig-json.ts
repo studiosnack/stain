@@ -1,19 +1,26 @@
 import { DB } from "https://deno.land/x/sqlite@v3.2.1/mod.ts";
 import { nanoid } from "https://deno.land/x/nanoid@v3.0.0/mod.ts";
+import { customAlphabet } from "https://deno.land/x/nanoid/customAlphabet.ts";
+import { join, basename } from "https://deno.land/std@0.193.0/path/mod.ts";
+
 // import sharp from "https://cdn.skypack.dev/sharp";
 
 const DB_FILE = "../insta.db";
 const BOOTSTRAP_SQL = "../sql/bootstrap.sql";
-const ARCHIVE_ROOT = "../archives/nsfmc_20211226";
+const ARCHIVE_ROOT = "../archives/nsfmc_20230203";
+const MEDIA_ROOT = "../media";
 
 const db = new DB(DB_FILE);
 
 console.log("dropping tables...");
 
+db.query("DROP TABLE if exists file_meta;");
 db.query("DROP TABLE if exists media; ");
 db.query("DROP TABLE if exists posts");
-db.query("DROP TABLE if exists users;");
 db.query("DROP TABLE if exists hashtags;");
+db.query("DROP TABLE if exists passkeys;");
+db.query("DROP TABLE if exists invites;");
+db.query("DROP TABLE if exists users;");
 
 console.log("creating tables from bootstrap file...");
 
@@ -39,21 +46,48 @@ type User = {
 const addUser = (
   username: string,
   name: string | null = null,
-  enabled = false
+  enabled = false,
+  referenced_by: string | null = null
 ): User => {
-  const myUid = nanoid();
-  console.log(`adding user (${myUid})...`);
+  const myUid = nanoid(5);
+  // console.log(`adding user ${username} (${myUid})...`);
 
-  const userParams = { id: myUid, username, name, enabled };
+  const userParams = { id: myUid, username, name, enabled, referenced_by };
 
   db.query(
-    "INSERT INTO USERS (id, username, name, enabled) values (:id, :username, :name, :enabled)",
+    "INSERT INTO USERS (id, username, name, enabled, referenced_by) values (:id, :username, :name, :enabled, :referenced_by)",
     userParams
   );
   return userParams;
 };
 
+// if you call this with no arguments, it generates
+// a base invite
+const makeInvite = (
+  invitee_id: string | null = null, // the id of the person invited
+  inviter_id: string | null = null // the id of the person who invited the invitee
+) => {
+  const nanoInviteId = customAlphabet(
+    "6789BCDFGHJKLMNPQRTWbcdfghjkmnpqrtwz",
+    5
+  );
+  const inviteId = `${nanoInviteId()}-${nanoInviteId()}`;
+  const params = {
+    recipient_id: invitee_id,
+    sender_id: inviter_id,
+    code: inviteId,
+  };
+
+  db.query(
+    "INSERT INTO INVITES (recipient_id, sender_id, code) VALUES (:recipient_id, :sender_id, :code)",
+    params
+  );
+  return params;
+};
+
 const me = addUser("nsfmc", "marcos ojeda", true);
+const invite = makeInvite(me.id);
+console.log(`made an invite for ${me.username} with code ${invite.code}`);
 
 type LocationExif = { latitude: number; longitude: number };
 type CameraExif = {
@@ -91,9 +125,21 @@ type IGPost = {
 };
 type IGPosts = IGPost[];
 
-const jsonData: IGPosts = JSON.parse(
-  await Deno.readTextFile(`${ARCHIVE_ROOT}/content/posts_1.json`)
+function transcodeLatin1ToUtf8(l1str) {
+  const bytes = Uint8Array.from([...l1str].map((c) => c.charCodeAt(0)));
+  return new TextDecoder().decode(bytes);
+}
+
+const { default: jsonData }: IGPosts = await import(
+  `${ARCHIVE_ROOT}/content/posts_1.json`,
+  {
+    assert: { type: "json" },
+  }
 );
+// console.log(jsonData)
+// const jsonData: IGPosts = JSON.parse(
+//   await Deno.readTextFile(`${ARCHIVE_ROOT}/content/posts_1.json`)
+// );
 
 jsonData.sort((left, right) => {
   return (
@@ -111,6 +157,7 @@ const mediaInsertQuery = db.prepareQuery<
   Record<string, unknown>,
   {
     id: string;
+    user_id: string;
     uri: string;
     title: string;
     metadata: string;
@@ -119,7 +166,10 @@ const mediaInsertQuery = db.prepareQuery<
     mentions: string;
   }
 >(
-  "INSERT INTO media (id, uri, title, metadata, created_on, hashtags, mentions) values (:id, :uri, :title, :metadata, :created_on, :hashtags, :mentions)"
+  `INSERT INTO media
+    (id, user_id, uri, title, metadata, created_on, hashtags, mentions, source)
+    values
+    (:id, :user_id, :uri, :title, :metadata, :created_on, :hashtags, :mentions, 'instagram')`
 );
 const postInsertQuery = db.prepareQuery<
   [],
@@ -130,11 +180,12 @@ const postInsertQuery = db.prepareQuery<
     media: string;
     user: string;
     created_on: number | null;
+    published_on: number | null;
     hashtags: string;
     mentions: string;
   }
 >(
-  "INSERT INTO posts (id, title, media, user, created_on, hashtags, mentions) values (:id, :title, :media, :user, :created_on, :hashtags, :mentions)"
+  "INSERT INTO posts (id, title, media, user_id, created_on, published_on, hashtags, mentions) values (:id, :title, :media, :user_id, :created_on, :published_on, :hashtags, :mentions)"
 );
 
 type Hashtag = {
@@ -179,33 +230,40 @@ const selectOrAddMention = (username: string): User => {
   if (tag.length === 0) {
     const id = nanoid(5);
     const params = { id, username };
-    mentionInsertQuery.execute(params);
+
+    // create a tentative invite for each ref'd user
+    const addedMention = addUser(username, undefined, false, me.id);
+    // console.log(`adding found user ${username} (${id})`)
+    // const invite = makeInvite(addedMention.id, me.id);
     return { ...params, name: "" };
   }
   return tag[0];
 };
 
+const pathToMedia = (uri: string) => join(ARCHIVE_ROOT, uri);
+
+const relativePathToImportedMedia = (name: string = "") =>
+  join("o", "imported", name);
+const pathToImportedMediaRoot = (name: string = "") =>
+  join(MEDIA_ROOT, relativePathToImportedMedia(name));
+
 const addMedia = (media: IGMedia) => {
   const id = nanoid(6);
-  const mediaHashtags = [...new Set(findHashtags(media.title))].map(
+  const title = transcodeLatin1ToUtf8(media.title);
+  const mediaHashtags = [...new Set(findHashtags(title))].map(
     selectOrAddHashtag
   );
-  const mediaMentions = [...new Set(findMentions(media.title))].map(
+  const mediaMentions = [...new Set(findMentions(title))].map(
     selectOrAddMention
   );
 
-  console.log(`trying to open ${ARCHIVE_ROOT + "/" + media.uri}`);
-  //const buf = Deno.readFileSync(media.uri);
-  // @ts-ignore: bad type def
-  //const meta = sharp(buf).metadata();
-  //console.log(meta);
-
   const params = {
     id,
+    user_id: me.id,
     uri: media.uri,
-    title: media.title,
+    title: title,
     metadata: media.media_metadata,
-    created_on: media.creation_timestamp * 1000,
+    created_on: media.creation_timestamp,
     hashtags: mediaHashtags,
     mentions: mediaMentions,
   };
@@ -225,22 +283,24 @@ const addPost = (
   hashtags: string[]
 ) => {
   const id = nanoid(5);
-  const postHashtags = [
-    ...new Set([...findHashtags(post?.title ?? ""), ...hashtags]),
-  ].map(selectOrAddHashtag);
-  const postMentions = [...new Set(findMentions(post?.title ?? ""))];
+  const title = transcodeLatin1ToUtf8(post?.title ?? "");
+  const postHashtags = [...new Set([...findHashtags(title), ...hashtags])].map(
+    selectOrAddHashtag
+  );
+  const postMentions = [...new Set(findMentions(title))];
 
   const params = {
     id,
-    title: post.title ?? "",
+    title: title,
     media,
-    user: user.id,
+    user_id: user.id,
     created_on: post.creation_timestamp ?? null,
     hashtags: postHashtags,
     mentions: postMentions,
   };
   postInsertQuery.execute({
     ...params,
+    published_on: post.creation_timestamp ?? null,
     media: JSON.stringify(params.media),
     hashtags: JSON.stringify(params.hashtags.map((i) => i.id)),
     mentions: JSON.stringify(params.mentions),
@@ -252,8 +312,6 @@ console.log("adding media in a transaction");
 
 const hashtagRe = new RegExp(/#(?<hashtag>\w+)/, "g");
 const mentionRe = new RegExp(/@(?<user>\w+)/, "g");
-
-// type MatchResult = { [key: string]: string } | undefined;
 
 const findRes = (str: string, re: RegExp): string[] => {
   if (str.trim() === "") {
@@ -267,15 +325,19 @@ const findRes = (str: string, re: RegExp): string[] => {
 const findHashtags = (str: string): string[] => findRes(str, hashtagRe);
 const findMentions = (str: string): string[] => findRes(str, mentionRe);
 
+console.log("emptying imported media root");
+await Deno.remove(pathToImportedMediaRoot(""), { recursive: true });
+await Deno.mkdir(pathToImportedMediaRoot(""), { recursive: true });
+
 db.transaction(() => {
   for (const post of jsonData) {
     if (post.media.length === 0) {
       break;
     }
 
-    const creationDate = post.media[0].creation_timestamp * 1000;
+    const creationDate = post.media[0].creation_timestamp;
     post.creation_timestamp = post.creation_timestamp
-      ? post.creation_timestamp * 1000
+      ? post.creation_timestamp
       : creationDate;
 
     let hashtags: string[] = [];
@@ -287,7 +349,13 @@ db.transaction(() => {
 
     const media = [];
     for (const medium of post.media) {
+      const srcName = basename(medium.uri);
+      const dest = pathToImportedMediaRoot(srcName);
+      Deno.copyFileSync(pathToMedia(medium.uri), dest);
+      medium.uri = relativePathToImportedMedia(srcName);
+
       const added = addMedia(medium);
+
       hashtags = [...hashtags, ...added.hashtags.map((x: Hashtag) => x.name)];
       mentions = [...mentions, ...added.mentions.map((x) => x.username)];
       media.push(added.id);
