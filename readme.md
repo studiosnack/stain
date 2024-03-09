@@ -19,6 +19,7 @@ this is basically designed around a single person or family, i haven't given muc
 ## misc
 
 - login only happens via passkeys
+  - more about node passkey stuff here https://gist.github.com/nsfmc/d74993d49126fdfc5f8c51a012126675
 - support ingesting instagram json
 
 ## admin
