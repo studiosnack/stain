@@ -1,0 +1,12 @@
+doctype html
+
+head
+  title foto
+
+body
+  div(
+    id="react-root"
+  )
+    != ssrContent ? ssrContent : null
+
+  script(type="module", src="../client.js")

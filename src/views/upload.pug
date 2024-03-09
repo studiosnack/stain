@@ -1,0 +1,15 @@
+doctype html
+
+head
+  title foto - upload
+
+body
+  div
+    p.
+      add some new photos
+    form(method="post" action="/upload" enctype="multipart/form-data")
+      input(id="file_input" name="fotos" type="file" multiple accept=".heic,.heif,.hif,.png")
+
+      input(type="submit" value="upload")
+
+    script(src="/upload.js" defer)

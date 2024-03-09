@@ -1,0 +1,17 @@
+<!doctype html>
+html
+  head
+    script(src="/signup.js" defer)
+
+  body
+    p Hi #{recipient_username} (#{recipient_name}), you've been invited to signup for this site.
+
+    form(id="signupform" name="signup" method="post" action="/register")
+      input(type="hidden" name="username" value=recipient_username)
+      input(type="hidden" name="name" value=recipient_name)
+      input(type="hidden" name="passkey_id" value=passkey_id)
+      input(type="hidden" name="code" value=code)
+      input(type="hidden" name="existing_credentials" value=existing_credentials)
+
+      input(type="submit" name="submit" value="yes, let's sign up" disabled=(deleted_on != null))
+

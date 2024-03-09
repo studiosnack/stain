@@ -1,0 +1,108 @@
+@import url('fonts/md.css');
+
+html, body {
+  font-family: 'MD IO';
+  margin: 0;
+  --overview-post-dimension: 250px;
+}
+@media (prefers-color-scheme: dark) {
+  html {
+    background: #111;
+    color: #fafafa;
+  }
+  .multi.multi::before {
+    text-shadow: 0 0 2px #fff;
+  }
+
+}
+.container {
+  display: flex;
+  flex-flow: column;
+}
+
+pre {
+  font-family: 'MD IO';
+  font-size: 12px;
+}
+
+.fotoBox {
+  width: 100vw;
+  height: 100vw;
+  display: flex;
+  overflow: scroll;
+  scroll-snap-type: x mandatory;
+  margin-right: 20px;
+}
+.fotoBox::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.fotoBox figure {
+  display: flex;
+  width: 100vw;
+  height: 100vw;
+  flex: 1 0 400px;
+  margin: 0;
+  scroll-snap-align: start;
+}
+
+figure img {
+  display: flex;
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  margin:0;
+  padding:0;
+}
+.fotoBox figcaption {
+  display: none;
+}
+.fotoCaption {
+  width: 400px;
+  font-weight: 900;
+/*  font-family: Times, PublicoText-Roman, georgia, serif;*/
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, var(--overview-post-dimension));
+  justify-content: center;
+  grid-row-gap: 1px;
+  grid-column-gap: 1px;
+}
+.gridImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gridPost {
+  width: var(--overview-post-dimension);
+  height: var(--overview-post-dimension);
+  list-style: none;
+  position: relative;
+}
+.gridPost.multi::before {
+  color: #fafafa;
+  content: '⎓';
+  font-weight:900;
+  font-size:25px;
+  position: absolute;
+  text-shadow: 0 0 2px #000022aa;
+  right: 10px;
+}
+
+@media (min-width: 800px) {
+  .container {
+    flex-flow: row;
+  }
+  .fotoBox {
+    width: 400px;
+    height: 400px;
+  }
+  .fotoBox figure {
+  display: flex;
+  width: 400px;
+  height: 400px;
+}
+}

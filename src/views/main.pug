@@ -1,0 +1,25 @@
+<!doctype html>
+html
+
+  head
+    link(rel="stylesheet" href="/styles.css")
+
+  body
+    p
+      | hi #{user.username || ''} 
+      if user.username
+        a(href="/logout") logout?
+
+    ul
+      if !user.username
+        li
+          a(href="/login").
+            login
+      if user.username
+        li
+          a(href=`/${user.username}`).
+            #{user.username}
+        li
+          a(href="/upload").
+            upload new photos
+        
