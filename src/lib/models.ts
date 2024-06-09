@@ -217,6 +217,7 @@ type PostMedia = {
   post_title: string;
   post_created_on: string;
   post_meta: { [key: string]: any };
+  post_user_id: string;
 
   media_id: string;
   m_co: string;
@@ -235,6 +236,7 @@ export async function getAllMediaForPost(
     posts.title AS post_title,
     posts.created_on AS post_created_on,
     posts.metadata AS post_meta,
+    posts.user_id AS post_user_id,
 
     mediapost.value AS media_id,
 

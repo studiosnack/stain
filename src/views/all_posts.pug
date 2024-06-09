@@ -13,4 +13,12 @@ body
     each post, idx in allPosts
       li(class=`gridPost ${JSON.parse(post.media).length > 1 ? 'multi' : ''}`)
         a(href=`/p/${post.id}`)
-          img(src=`/m/o/${JSON.parse(post.media)[0]}` loading="lazy" class="gridImg" wid)
+          img(src=`/m/o/${JSON.parse(post.media)[0]}` loading="lazy" class="gridImg" width="250" height="250")
+        div.postCaptions
+          - let pubDate = new Date(post.created_on * 1000)
+          p.postDate
+            = `${pubDate.getFullYear()}`
+          if post.title
+            p.title #{post.title}
+          if post.caption
+            p.caption #{post.caption}  

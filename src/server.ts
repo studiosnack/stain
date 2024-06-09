@@ -7,6 +7,8 @@ const VALIDATED_DOMAINS = [
   `http://localhost:${PORT}`,
   // this is whatever domain you want your app hosted under
   "https://foto.generic.cx",
+  // mdns here
+  `http://skane.local:${PORT}`,
 ];
 
 // express and middleware
@@ -29,7 +31,6 @@ if (!uploadStat?.isDirectory()) {
   console.log(`making directory ${UPLOAD_PATH}`);
   fsSync.mkdirSync(UPLOAD_PATH, { recursive: true });
 }
-// const METADATA_VERSION = 1;
 
 // for db
 import { Database, Statement } from "sqlite3";
@@ -390,7 +391,21 @@ bootstrapDb().then(({ db, instaStore }) => {
     const { origin } = reqUrl;
 
     if (media.length > 0) {
-      res.render("post", { media, allMeta, post: {}, origin });
+      const user = await getUserById(db, media[0].post_user_id);
+
+      const post = {
+        title: media[0].post_title,
+        id: media[0].post_id,
+        created_on: media[0].post_created_on,
+        metadata: media[0].post_meta,
+      };
+
+      let postTitle =
+        post.title ||
+        media[0].media_caption ||
+        media[0].media_title ||
+        media[0].post_title;
+      res.render("post", { media, allMeta, post, postTitle, origin, user });
     } else {
       res.status(404);
       res.send("oh no");

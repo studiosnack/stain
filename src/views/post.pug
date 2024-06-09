@@ -1,28 +1,20 @@
 doctype html
 
 head
-  title= post.title || media[0].media_title
+  title= postTitle ? `${user.username}: ${postTitle}` : 'fotos'
   meta(charset="utf-8")
   meta(name="viewport" content="width=device-width, initial-scale=1")
 
-  meta(property="description"  content=post.title || media[0].media_title)
+  meta(property="description"  content=postTitle)
   meta(property="og:description"  content=post.title)
 
-  meta(property="og:image"  content=`${origin}/m/o/${media[0].media_id}`)
-  meta(property="og:image:type"  content="image/jpeg")
-  meta(property="og:image:width"  content=allMeta[0].sharp_metadata.width)
-  meta(property="og:image:height"  content=allMeta[0].sharp_metadata.height)
+  each im, idx in media
+    meta(property="og:image"  content=`${origin}/m/o/${im.media_id}`)
+    meta(property="og:image:type"  content="image/jpeg")
+    meta(property="og:image:width"  content=allMeta[idx].sharp_metadata.width)
+    meta(property="og:image:height"  content=allMeta[idx].sharp_metadata.height)
 
   link(rel="stylesheet" href="/styles.css")
-
-  script.
-    addEventListener("DOMContentLoaded", (event) => {
-      document.querySelectorAll('.container').forEach(el => {
-        el.addEventListener('click', () => {
-          el.requestFullscreen()
-        })
-      })
-    });    
 
 body
 
@@ -35,5 +27,6 @@ body
     .fotoCaption
       p= media[0].post_title || media[0].media_title
 
-  pre #{JSON.stringify(media,null,2)}
-  pre #{JSON.stringify(allMeta, null, 2)}
+  details
+    pre.meta #{JSON.stringify(media,null,2)}
+    pre.meta #{JSON.stringify(allMeta, null, 2)}
