@@ -21,12 +21,36 @@ body
   .container
     .fotoBox
       each im, idx in media
-        figure.foto
+        figure.foto(data-idx=idx)
           img(src=`/m/o/${im.media_id}` width=allMeta[idx].sharp_metadata.width height=allMeta[idx].sharp_metadata.height)
           figcaption= im.media_caption || im.media_title || im.post_title
     .fotoCaption
-      p= media[0].post_title || media[0].media_title
+      div.spacer
+      div.description
+        p= media[0].post_title || media[0].media_title
+      div.meta
+        if media.length > 1 
+          p.scrollPosition= `${1} of ${media.length}`
+        
 
   details
     pre.meta #{JSON.stringify(media,null,2)}
     pre.meta #{JSON.stringify(allMeta, null, 2)}
+
+  script.
+
+    if (document.querySelectorAll(".foto").length > 1) {
+      const observerCallback = (entries, observer) => {
+        const index = Number(entries.filter(ent => ent.isIntersecting)[0]?.target?.dataset?.idx ?? 1)
+        document.querySelector('.scrollPosition').innerText = `${index+1} of #{media.length}`
+      };
+
+      let observer = new IntersectionObserver(observerCallback, {
+        root: document.getElementsByClassName(".fotoBox")[0], 
+        rootMargin:"5px",
+        threshold: 0.80
+      });
+      
+      document.querySelectorAll(".foto").forEach(el => observer.observe(el))
+    }
+    

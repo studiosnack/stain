@@ -1,6 +1,14 @@
 @import url("fonts/md.css");
 @import url("fonts/lapidar.css");
 
+:root {
+  --bg-color-light: #fdfdfd;
+  --bg-color-dark: #444;
+
+  --fg-color-light: black;
+  --fg-color-dark: #fafafa;
+}
+
 html,
 body {
   margin: 0;
@@ -8,14 +16,14 @@ body {
 }
 
 html {
-  background: #fdfdfd;
+  background: var(--bg-color-light);
   color: #222;
   font-family: "MD IO";
   --overview-post-dimension: 250px;
 }
 @media (prefers-color-scheme: dark) {
   html {
-    background: #111;
+    background: var(--bg-color-dark);
     color: #fafafa;
   }
   .multi.multi::before {
@@ -50,7 +58,7 @@ pre {
   display: flex;
   width: 100vw;
   height: 100vw;
-  flex: 1 0 100vw;
+  flex: 1 0 100%;
   margin: 0;
   scroll-snap-align: start;
 }
@@ -114,12 +122,13 @@ pre.meta {
   font-family: "Lapidar";
   font-weight: 200;
   text-align: right;
-  /* color: #111; */
 }
 
 @media (min-width: 800px) {
   .container {
     flex-flow: row;
+    width: 780px;
+    margin: 20vh auto;
   }
   .grid {
     grid-template-columns: repeat(3, var(--overview-post-dimension));
@@ -139,8 +148,28 @@ pre.meta {
   }
   .fotoBox figure {
     display: flex;
-    flex: 1 0 400px;
     width: 400px;
     height: 400px;
+  }
+  .fotoCaption {
+    margin-left: 20px;
+    width: 340px;
+    height: 400px;
+    /* flex: 1 0 100%; */
+    flex-flow: column;
+    display: flex;
+
+    & > .spacer {
+      flex-grow: 1;
+    }
+
+    & div.description {
+      padding-bottom: 1em;
+      border-bottom: 1px solid var(--fg-color-dark);
+    }
+    & div.meta {
+      text-align: right;
+      font-size: 12px;
+    }
   }
 }
