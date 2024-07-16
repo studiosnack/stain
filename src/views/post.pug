@@ -21,7 +21,7 @@ body
   .container
     .fotoBox
       each im, idx in media
-        figure.foto(data-idx=idx)
+        figure.foto(data-idx=idx data-media-id=im.media_id id=im.media_id)
           img(src=`/m/o/${im.media_id}` width=allMeta[idx].sharp_metadata.width height=allMeta[idx].sharp_metadata.height)
           figcaption= im.media_caption || im.media_title || im.post_title
     .fotoCaption
@@ -29,8 +29,10 @@ body
       div.description
         p= media[0].post_title || media[0].media_title
       div.meta
+        span.date= new Intl.DateTimeFormat('en-us').format(new Date(media[0].post_created_on*1000))
         if media.length > 1 
-          p.scrollPosition= `${1} of ${media.length}`
+          span.scrollPosition= `${1} of ${media.length}`
+        a.link(href="javascript:" title="copy a link to this photo")|  🔗
         
 
   details
@@ -38,11 +40,19 @@ body
     pre.meta #{JSON.stringify(allMeta, null, 2)}
 
   script.
-
+  
+    //- bootstrap intersection observer if needed
     if (document.querySelectorAll(".foto").length > 1) {
       const observerCallback = (entries, observer) => {
-        const index = Number(entries.filter(ent => ent.isIntersecting)[0]?.target?.dataset?.idx ?? 1)
+        const visibleEntry = entries.filter(ent => ent.isIntersecting)[0]?.target;
+        const index = Number(visibleEntry?.dataset?.idx ?? 1)
         document.querySelector('.scrollPosition').innerText = `${index+1} of #{media.length}`
+        if (visibleEntry) {
+          const mediaId = visibleEntry.dataset?.mediaId;
+          if (mediaId) {
+            window.location.replace(`#${mediaId}`)
+          }
+        }
       };
 
       let observer = new IntersectionObserver(observerCallback, {
@@ -53,4 +63,19 @@ body
       
       document.querySelectorAll(".foto").forEach(el => observer.observe(el))
     }
+    
+    if (window.location.hash !== '') {
+      const hashMediaId = window.location.hash.replace('#','');
+      document.getElementById(`${hashMediaId}`).scrollIntoView();
+    }
+    
+    document.querySelector('.link').addEventListener('click', () => {
+      navigator.clipboard.writeText(window.location.href).then(() => {
+        document.querySelector('.link').innerText = '✅'
+      }).catch(err => {console.log(err)})
+    })
+    
+    document.querySelectorAll('img').forEach(el => el.addEventListener('click', (evt) => {
+      evt.currentTarget.requestFullscreen().catch(err => {console.error(err); console.log('oops')})
+    }));
     

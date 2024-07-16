@@ -163,13 +163,31 @@ pre.meta {
       flex-grow: 1;
     }
 
-    & div.description {
+    & .description {
       padding-bottom: 1em;
       border-bottom: 1px solid var(--fg-color-dark);
+      margin-bottom: 0.5em;
     }
-    & div.meta {
-      text-align: right;
+    & .meta {
+      display: flex;
+      flex-flow: row;
       font-size: 12px;
+      flex-wrap: nowrap;
+      align-items: baseline;
+
+      & .date {
+        display: inline-flex;
+        /* width: 100%; */
+        flex: 1 0 auto;
+      }
+
+      & .scrollPosition {
+        margin-right: 1em;
+      }
+
+      & .link {
+        text-decoration: none;
+      }
     }
   }
 }
