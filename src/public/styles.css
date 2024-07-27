@@ -33,6 +33,7 @@ html {
 .container {
   display: flex;
   flex-flow: column;
+  margin-bottom: 20vh;
 }
 
 pre {
@@ -73,11 +74,6 @@ figure img {
 }
 .fotoBox figcaption {
   display: none;
-}
-.fotoCaption {
-  /* width: 400px; */
-  font-family: Lapidar;
-  font-weight: 200;
 }
 
 pre.meta {
@@ -124,6 +120,47 @@ pre.meta {
   text-align: right;
 }
 
+.fotoCaption {
+  font-family: Lapidar;
+  font-weight: 200;
+
+  & .description,
+  & .meta {
+    padding: 0 0.5em;
+  }
+
+  & > .spacer {
+    flex-grow: 1;
+  }
+
+  & .description {
+    padding-bottom: 1em;
+    border-bottom: 1px solid var(--fg-color-dark);
+    margin-bottom: 0.5em;
+  }
+  & .meta {
+    display: flex;
+    flex-flow: row;
+    font-size: 12px;
+    flex-wrap: nowrap;
+    align-items: baseline;
+
+    & .date {
+      display: inline-flex;
+      /* width: 100%; */
+      flex: 1 0 auto;
+    }
+
+    & .scrollPosition {
+      margin-right: 1em;
+    }
+
+    & .link {
+      text-decoration: none;
+    }
+  }
+}
+
 @media (min-width: 800px) {
   .container {
     flex-flow: row;
@@ -155,39 +192,12 @@ pre.meta {
     margin-left: 20px;
     width: 340px;
     height: 400px;
-    /* flex: 1 0 100%; */
     flex-flow: column;
     display: flex;
 
-    & > .spacer {
-      flex-grow: 1;
-    }
-
-    & .description {
-      padding-bottom: 1em;
-      border-bottom: 1px solid var(--fg-color-dark);
-      margin-bottom: 0.5em;
-    }
+    & .description,
     & .meta {
-      display: flex;
-      flex-flow: row;
-      font-size: 12px;
-      flex-wrap: nowrap;
-      align-items: baseline;
-
-      & .date {
-        display: inline-flex;
-        /* width: 100%; */
-        flex: 1 0 auto;
-      }
-
-      & .scrollPosition {
-        margin-right: 1em;
-      }
-
-      & .link {
-        text-decoration: none;
-      }
+      padding: 0 0;
     }
   }
 }

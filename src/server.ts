@@ -24,7 +24,8 @@ import path from "node:path";
 
 const DB_PATH = "insta.db";
 const MEDIA_PATH = "../media";
-const UPLOAD_PATH = path.join(__dirname, MEDIA_PATH, "o", "uploaded");
+const ROOT_PATH = path.join(__dirname, MEDIA_PATH);
+const UPLOAD_PATH = path.join(ROOT_PATH, "o", "uploaded");
 
 const uploadStat = fsSync.statSync(UPLOAD_PATH, { throwIfNoEntry: false });
 if (!uploadStat?.isDirectory()) {
@@ -38,6 +39,7 @@ import { open, Database as PDatabase } from "sqlite";
 
 // for image metadata
 import sharp from "sharp";
+import exifReader from "exif-reader";
 
 import {
   inviteDataFromCode,
@@ -51,6 +53,10 @@ import {
   getMediaById,
   getPostsByUsername,
   getUserById,
+  fileMetaFromPath,
+  emptyMediaAtPath,
+  insertMediaForUser,
+  insertPostForUser,
 } from "./lib/models.js";
 
 import {
@@ -165,7 +171,18 @@ bootstrapDb().then(({ db, instaStore }) => {
   app.set("views", `${__dirname}/../src/views`);
   app.set("view engine", "pug");
 
-  app.use(express.static(`${__dirname}/public`));
+  app.use(
+    express.static(`${__dirname}/public`, {
+      setHeaders(res, path, stat) {
+        if (path.endsWith(".heic")) {
+          res.set("Content-Type", "image/heic");
+        }
+        if (path.endsWith(".heif") || path.endsWith(".hif")) {
+          res.set("Content-Type", "image/heif");
+        }
+      },
+    })
+  );
 
   // POST /login
   // requires POST with formadata
@@ -376,7 +393,8 @@ bootstrapDb().then(({ db, instaStore }) => {
   // GET /p/:post_id
   // renders an individual post
   app.get("/p/:post_id", async (req, res) => {
-    const media = await getAllMediaForPost(db, req.params.post_id);
+    let media = await getAllMediaForPost(db, req.params.post_id);
+    media = media.map((m) => ({ ...m, media_meta: JSON.parse(m.media_meta) }));
 
     const allMeta = await Promise.all(
       media.map((foto) =>
@@ -397,7 +415,7 @@ bootstrapDb().then(({ db, instaStore }) => {
         title: media[0].post_title,
         id: media[0].post_id,
         created_on: media[0].post_created_on,
-        metadata: media[0].post_meta,
+        // metadata: media[0].media_meta,
       };
 
       let postTitle =
@@ -426,7 +444,15 @@ bootstrapDb().then(({ db, instaStore }) => {
         pathToMedia(media.uri)
       );
 
-      res.sendFile(pathToMedia(media.uri));
+      const contentType = media.uri.endsWith(".heic")
+        ? "image/heic"
+        : media.uri.endsWith(".heif") || media.uri.endsWith(".hif")
+        ? "image/heif"
+        : undefined;
+
+      res.sendFile(pathToMedia(media.uri), {
+        headers: contentType ? { "Content-Type": contentType } : undefined,
+      });
       return;
     }
     res.status(404);
@@ -443,10 +469,26 @@ bootstrapDb().then(({ db, instaStore }) => {
   app.post(
     "/upload",
     withUserMiddleware(db),
-    upload.array("fotos", 3),
-    (req, res) => {
+    upload.array("fotos"),
+
+    async (req, res) => {
       console.log(req.files);
-      res.send("ok").end();
+      if (!req.files) {
+        res.send("no media?").end();
+      }
+      if (Array.isArray(req.files) && req.user != null) {
+        const postMedia = req.files.map((fileOb) => {
+          return emptyMediaAtPath(fileOb.path);
+        });
+        const mediaIds = await insertMediaForUser(
+          db,
+          postMedia,
+          req.user.id,
+          ROOT_PATH
+        );
+        const postId = await insertPostForUser(db, mediaIds, req.user.id);
+        res.redirect(`/p/${postId}`);
+      }
     }
   );
 
@@ -490,7 +532,7 @@ function withUserMiddleware(db: PDatabase) {
   };
 }
 
-async function fileMetaFromPath(path: string) {
+/*async function fileMetaFromPath(path: string) {
   const d = await fs.readFile(path);
   const img = await sharp(d);
   const {
@@ -506,6 +548,7 @@ async function fileMetaFromPath(path: string) {
     resolutionUnit,
     hasProfile,
     hasAlpha,
+    exif,
   } = await img.metadata();
   return {
     format,
@@ -520,5 +563,7 @@ async function fileMetaFromPath(path: string) {
     resolutionUnit,
     hasProfile,
     hasAlpha,
+    exif: exif ? exifReader(exif) : undefined,
   };
 }
+*/

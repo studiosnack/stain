@@ -4,8 +4,10 @@ import nanoid from "nanoid";
 // for image metadata
 import sharp from "sharp";
 import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import exifReader from "exif-reader";
 
-const METADATA_VERSION = 1;
+const METADATA_VERSION = 4;
 
 type User = {
   id: string;
@@ -60,7 +62,7 @@ type Invite = {
 
 type Media = {
   id: string;
-  uri: string;
+  uri: string; // a relative path
   title?: string;
   caption?: string;
   created_on: Date;
@@ -224,6 +226,7 @@ type PostMedia = {
   media_uri: string;
   media_title: string;
   media_caption: string;
+  media_meta: {};
 };
 
 export async function getAllMediaForPost(
@@ -235,15 +238,16 @@ export async function getAllMediaForPost(
     posts.id AS post_id,
     posts.title AS post_title,
     posts.created_on AS post_created_on,
-    posts.metadata AS post_meta,
     posts.user_id AS post_user_id,
+    posts.metadata AS post_meta,
 
     mediapost.value AS media_id,
 
     mediadata.created_on AS m_co,
     mediadata.uri AS media_uri,
     mediadata.title AS media_title,
-    mediadata.caption AS media_caption
+    mediadata.caption AS media_caption,
+    mediadata.metadata AS media_meta
 
   FROM
     posts,
@@ -262,7 +266,12 @@ function parseMedia(media: { metadata: string }): {} {
   return { ...media, metadata: JSON.parse(media.metadata) };
 }
 
-async function fileMetaFromPath(path: string) {
+/**
+ * parse an image at path with both sharp and exif-reader
+ *
+ * @param path an absolute path to an image
+ */
+export async function fileMetaFromPath(path: string) {
   const d = await fs.readFile(path);
   const img = await sharp(d);
   const {
@@ -278,6 +287,7 @@ async function fileMetaFromPath(path: string) {
     resolutionUnit,
     hasProfile,
     hasAlpha,
+    exif,
   } = await img.metadata();
   return {
     format,
@@ -292,6 +302,7 @@ async function fileMetaFromPath(path: string) {
     resolutionUnit,
     hasProfile,
     hasAlpha,
+    exif: exif ? exifReader(exif) : "none",
   };
 }
 
@@ -326,14 +337,15 @@ export async function insertOrFetchMetaFromMediaIdAtPath(
   try {
     meta = await fileMetaFromPath(path);
   } catch (err) {
+    console.error(`failed to load metadata for image at path ${path}`);
     return { media_id: mediaId, sharp_metadata: {} };
   }
   console.log("parsed image with sharp");
   const res = await db.run(
     `
-    insert or ignore into file_meta
+    INSERT OR IGNORE INTO file_meta
     (media_id, sharp_metadata, metadata_version)
-    values
+    VALUES
     (:media_id, :sharp_metadata, :metadata_version)
   `,
     {
@@ -344,4 +356,135 @@ export async function insertOrFetchMetaFromMediaIdAtPath(
   );
   console.log(`meta query finished in ${+new Date() - start}ms`);
   return { media_id: mediaId, sharp_metadata: meta };
+}
+
+const hashtagRe = new RegExp(/#(?<hashtag>\w+)/, "g");
+const mentionRe = new RegExp(/@(?<user>\w+)/, "g");
+
+const findRes = (str: string, re: RegExp): string[] => {
+  if (str.trim() === "") {
+    return [];
+  }
+  const foundMatches = [...(str.matchAll(re) ?? [])];
+
+  return foundMatches.map((m) => m[1]);
+};
+
+const findHashtags = (str: string): string[] => findRes(str, hashtagRe);
+const findMentions = (str: string): string[] => findRes(str, mentionRe);
+
+/**
+  creates a new in-memory media post for a given path
+  
+  path should be absolute
+*/
+export function emptyMediaAtPath(path: string): Media {
+  return {
+    id: nanoid.nanoid(6),
+    uri: path,
+    title: "",
+    caption: "",
+    created_on: new Date(),
+    metadata: {}, // this is currently instagram metadata, not unpopulated here
+    hashtags: [],
+    mentions: [],
+  };
+}
+
+/**
+  insert a series of in-memory media objects
+  
+  if successful returns an array of media ids in the database
+ */
+export async function insertMediaForUser(
+  db: Database,
+  media: Media[],
+  userId: string,
+  root_path: string
+): Promise<string[]> {
+  const updatedMedia = media.map((m) => {
+    const uri = path.relative(root_path, m.uri);
+    return { ...m, uri };
+  });
+
+  for (const medium of updatedMedia) {
+    try {
+      await db.run(
+        `
+        INSERT INTO media (
+          id, 
+          user_id, 
+          uri, 
+          title, 
+          caption,
+          source
+        ) values (
+          :id,
+          :user_id,
+          :uri,
+          :title,
+          :caption,
+          "stain"
+        )
+      `,
+        {
+          ":id": medium.id,
+          ":user_id": userId,
+          ":uri": medium.uri,
+          ":title": medium.title,
+          ":caption": medium.caption,
+          // TODO(marcos): make created_on variable here (need to find strftime)
+        }
+      );
+    } catch (err) {
+      console.error(
+        `failed to create media with id: ${medium.id} and path ${medium.uri}`
+      );
+      console.error(err);
+      throw new Error(`failed in inserting media with id ${medium.id}`);
+    }
+  }
+  return updatedMedia.map((m) => m.id);
+}
+
+/**
+  inserts a new Post, returns the id of the created post
+  
+  throws if a post fails to insert
+ */
+export async function insertPostForUser(
+  db: Database,
+  mediaIds: string[],
+  userId: string
+): Promise<string> {
+  const id = nanoid.nanoid(5);
+  const media = JSON.stringify(mediaIds);
+  try {
+    await db.run(
+      `
+      INSERT INTO posts (
+        id,
+        user_id,
+        media,
+        title,
+        caption
+      ) VALUES (
+        :id,
+        :user_id,
+        :media,
+        "",
+        ""
+      )
+    `,
+      {
+        ":id": id,
+        ":user_id": userId,
+        ":media": media,
+      }
+    );
+  } catch (err) {
+    console.error(`Failed to create post with id ${id}, with media: ${media}`);
+    console.error(err);
+  }
+  return id;
 }

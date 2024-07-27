@@ -89,23 +89,25 @@ const me = addUser("nsfmc", "marcos ojeda", true);
 const invite = makeInvite(me.id);
 console.log(`made an invite for ${me.username} with code ${invite.code}`);
 
-type LocationExif = { latitude: number; longitude: number };
-type CameraExif = {
-  iso: number;
-  focal_length: string;
-  lens_model: string;
-  scene_capture_type: string;
-  software: string;
-  device_id: string;
-  scene_type: number;
-  camera_position: string;
-  lens_make: string;
+// instagram serializes lat/lon as just two floats rather than as its constituent bits
+type IGGPSExif = { latitude: number; longitude: number };
+
+type IGExif = {
+  iso: number; // i.e. 8000
+  focal_length: string; // "5.6"
+  lens_model: string; // "E 35mm F1.8 OSS"
+  scene_capture_type: string; // "standard"
+  software: string; // camera software, like ILCE-7M4 V1.00
+  device_id: string; // uuid, possibly phone device id
+  scene_type: number; // "1?"
+  camera_position: string; // "unknown" or "back"
+  lens_make: string; // "apple"
   date_time_digitized: string; // iso 8601
   date_time_original: string;
   source_type: string; // library | camera???
   aperture: string; // floatish
   shutter_speed: string; // floatish
-  metering_mode: string; // number?
+  metering_mode: string; // number-like string
 };
 
 type IGMedia = {
@@ -114,7 +116,7 @@ type IGMedia = {
   title: string;
   media_metadata?: {
     photo_metadata?: {
-      exif_data?: Array<LocationExif | CameraExif>;
+      exif_data?: Array<IGGPSExif | IGExif>;
     };
   };
 };

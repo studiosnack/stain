@@ -16,7 +16,7 @@ type Post = {
   created_on: string | undefined;
   published_on: string | undefined;
   deleted_on: string | undefined;
-  metadata: {};
+  metadata: {}; // unused for now!
   hashtags: string[];
   mentions: string[];
 };
