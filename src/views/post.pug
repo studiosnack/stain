@@ -35,9 +35,10 @@ body
         a.link(href="javascript:" title="copy a link to this photo")|  🔗
         
 
-  details
-    pre.meta #{JSON.stringify(media,null,2)}
-    pre.meta #{JSON.stringify(allMeta, null, 2)}
+  if (userOwnsMedia) 
+    details
+      pre.meta #{JSON.stringify(media,null,2)}
+      pre.meta #{JSON.stringify(allMeta, null, 2)}
 
   script.
   
