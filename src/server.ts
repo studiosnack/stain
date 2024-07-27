@@ -423,7 +423,15 @@ bootstrapDb().then(({ db, instaStore }) => {
         media[0].media_caption ||
         media[0].media_title ||
         media[0].post_title;
-      res.render("post", { media, allMeta, post, postTitle, origin, user });
+      res.render("post", {
+        media,
+        allMeta,
+        post,
+        postTitle,
+        origin,
+        user,
+        userOwnsMedia: req.user?.id != null && user?.id === req.user?.id,
+      });
     } else {
       res.status(404);
       res.send("oh no");
@@ -444,10 +452,14 @@ bootstrapDb().then(({ db, instaStore }) => {
         pathToMedia(media.uri)
       );
 
-      const contentType = media.uri.endsWith(".heic")
+      const uri = media.uri.toLowerCase();
+
+      const contentType = uri.endsWith(".heic")
         ? "image/heic"
-        : media.uri.endsWith(".heif") || media.uri.endsWith(".hif")
+        : uri.endsWith(".heif") || uri.endsWith(".hif")
         ? "image/heif"
+        : uri.endsWith(".jpg") || uri.endsWith(".jpeg")
+        ? "image/jpeg"
         : undefined;
 
       res.sendFile(pathToMedia(media.uri), {
@@ -462,6 +474,9 @@ bootstrapDb().then(({ db, instaStore }) => {
   // GET /upload
   //
   app.get("/upload", withUserMiddleware(db), (req, res) => {
+    if (!req.user?.id) {
+      return res.send("hc svnt dracones").end();
+    }
     res.render("upload", { user: req.user ?? {} });
     return;
   });
