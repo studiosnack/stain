@@ -26,6 +26,7 @@ body
             src=`/m/o/${im.media_id}` 
             width=allMeta[idx].sharp_metadata.width 
             height=allMeta[idx].sharp_metadata.height
+            style=`max-width: ${allMeta[idx].sharp_metadata.width}px;`
           )
           figcaption= im.media_caption || im.media_title || im.post_title
     .fotoCaption
@@ -80,7 +81,7 @@ body
       }).catch(err => {console.log(err)})
     })
     
-    document.querySelectorAll('img').forEach(el => el.addEventListener('click', (evt) => {
+    document.querySelectorAll('.foto').forEach(el => el.addEventListener('click', (evt) => {
       evt.currentTarget.requestFullscreen().catch(err => {console.error(err); console.log('oops')})
     }));
     
