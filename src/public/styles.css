@@ -46,6 +46,7 @@ pre {
   height: calc(100vw - 2px);
   display: flex;
   overflow: scroll;
+  overflow-y: hidden;
   scroll-snap-type: x mandatory;
   /* margin-right: 20px; */
   margin-left: 1px;
