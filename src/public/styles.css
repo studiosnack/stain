@@ -29,6 +29,11 @@ html {
   .multi.multi::before {
     text-shadow: 0 0 2px #fff;
   }
+  .fotoCaption {
+    & .description.description {
+      border-bottom: 1px solid var(--fg-color-dark);
+    }
+  }
 }
 .container {
   display: flex;
@@ -58,6 +63,8 @@ pre {
 
 .fotoBox figure {
   display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100vw;
   height: 100vw;
   flex: 1 0 100%;
@@ -136,7 +143,7 @@ pre.meta {
 
   & .description {
     padding-bottom: 1em;
-    border-bottom: 1px solid var(--fg-color-dark);
+    border-bottom-color: var(--fg-color-light);
     margin-bottom: 0.5em;
   }
   & .meta {
