@@ -65,8 +65,8 @@ type Media = {
   uri: string; // a relative path
   title?: string;
   caption?: string;
-  created_on: Date;
-  deleted_on?: Date;
+  created_on: number;
+  deleted_on?: number;
   metadata: { [key: string]: any };
   hashtags: string[];
   mentions: string[];
