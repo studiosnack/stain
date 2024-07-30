@@ -481,6 +481,11 @@ bootstrapDb().then(({ db, instaStore }) => {
 
       const uri = media.uri.toLowerCase();
 
+      if (uri.endsWith("mp4")) {
+        res.sendFile(pathToMedia(media.uri));
+        return;
+      }
+
       const contentType = uri.endsWith(".heic")
         ? "image/heic"
         : uri.endsWith(".heif") || uri.endsWith(".hif")
@@ -508,15 +513,10 @@ bootstrapDb().then(({ db, instaStore }) => {
         pathToMedia(media.uri)
       );
 
-      // const uri = media.uri.toLowerCase();
-      // // TODO(marcos): refactor this path content type stuff
-      // const contentType = uri.endsWith(".heic")
-      //   ? "image/heic"
-      //   : uri.endsWith(".heif") || uri.endsWith(".hif")
-      //   ? "image/heif"
-      //   : uri.endsWith(".jpg") || uri.endsWith(".jpeg")
-      //   ? "image/jpeg"
-      //   : undefined;
+      if (media.uri.endsWith("mp4")) {
+        res.sendFile(pathToMedia(media.uri));
+        return;
+      }
 
       // does the resized version exist?
       // check SMALL_RESIZE_PATH first
@@ -551,7 +551,7 @@ bootstrapDb().then(({ db, instaStore }) => {
       });
       if (!smallJpegStat?.isFile()) {
         const resizedBuffer = await sharp(pathToMedia(media.uri))
-          .resize({ width: 500, withoutEnlargement: true })
+          .resize({ height: 500, withoutEnlargement: true })
           .jpeg({ quality: 70, progressive: true })
           .toFile(resizedJpegPath);
       }
