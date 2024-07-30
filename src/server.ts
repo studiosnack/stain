@@ -22,15 +22,27 @@ import * as fs from "node:fs/promises";
 import * as fsSync from "node:fs";
 import path from "node:path";
 
+// CONSTANTS
+const VIEWS_DIR = path.join(__dirname, `/../src/views`);
 const DB_PATH = "insta.db";
 const MEDIA_PATH = "../media";
-const ROOT_PATH = path.join(__dirname, MEDIA_PATH);
-const UPLOAD_PATH = path.join(ROOT_PATH, "o", "uploaded");
+
+// this is weird, i admit, but it's a crude way to deal with relative media paths
+const ROOT_MEDIA_PATH = path.join(__dirname, MEDIA_PATH);
+
+// in order to keep the fs relatively reasonable, leave originals in the o dir
+// but keep copies of smaller/resized versions in separate folders
+const UPLOAD_PATH = path.join(ROOT_MEDIA_PATH, "o", "uploaded");
+const SMALL_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "s");
+const MEDIUM_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "m");
+const LARGE_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "l");
 
 const uploadStat = fsSync.statSync(UPLOAD_PATH, { throwIfNoEntry: false });
 if (!uploadStat?.isDirectory()) {
-  console.log(`making directory ${UPLOAD_PATH}`);
+  console.log(`- making upload directory ${UPLOAD_PATH}`);
   fsSync.mkdirSync(UPLOAD_PATH, { recursive: true });
+} else {
+  console.log(`- upload directory found at path ${UPLOAD_PATH}`);
 }
 
 // for db
@@ -57,6 +69,8 @@ import {
   emptyMediaAtPath,
   insertMediaForUser,
   insertPostForUser,
+  updateTitleForPost,
+  getPostForId,
 } from "./lib/models.js";
 
 import {
@@ -168,7 +182,7 @@ bootstrapDb().then(({ db, instaStore }) => {
   const app = express();
   app.use(sess);
 
-  app.set("views", `${__dirname}/../src/views`);
+  app.set("views", VIEWS_DIR);
   app.set("view engine", "pug");
 
   app.use(
@@ -392,7 +406,7 @@ bootstrapDb().then(({ db, instaStore }) => {
 
   // GET /p/:post_id
   // renders an individual post
-  app.get("/p/:post_id", async (req, res) => {
+  app.get("/p/:post_id", withUserMiddleware(db), async (req, res) => {
     let media = await getAllMediaForPost(db, req.params.post_id);
     media = media.map((m) => ({ ...m, media_meta: JSON.parse(m.media_meta) }));
 
@@ -438,6 +452,19 @@ bootstrapDb().then(({ db, instaStore }) => {
     }
   });
 
+  app.put(
+    "/p/:post_id/title",
+    express.json(),
+    withUserMiddleware(db),
+    async (req, res, next) => {
+      const post = await getPostForId(db, req.params.post_id);
+      if (req.user != null && post?.user_id === req.user.id) {
+        const nextTitle = await updateTitleForPost(db, post.id, req.body.title);
+        res.send(nextTitle).end();
+      }
+    }
+  );
+
   // GET /m/o/:media_id
   // this gets the 'original' media. the idea is we have another
   // set of endpoints like /m/s/:media_id that let you have smaller
@@ -471,6 +498,136 @@ bootstrapDb().then(({ db, instaStore }) => {
     res.send("wuh woh");
   });
 
+  app.get("/m/s/:media_id", async (req, res) => {
+    const media = await getMediaById(db, req.params.media_id);
+
+    if (media) {
+      await insertOrFetchMetaFromMediaIdAtPath(
+        db,
+        req.params["media_id"],
+        pathToMedia(media.uri)
+      );
+
+      // const uri = media.uri.toLowerCase();
+      // // TODO(marcos): refactor this path content type stuff
+      // const contentType = uri.endsWith(".heic")
+      //   ? "image/heic"
+      //   : uri.endsWith(".heif") || uri.endsWith(".hif")
+      //   ? "image/heif"
+      //   : uri.endsWith(".jpg") || uri.endsWith(".jpeg")
+      //   ? "image/jpeg"
+      //   : undefined;
+
+      // does the resized version exist?
+      // check SMALL_RESIZE_PATH first
+      const pathForResizedMedia = path.join(SMALL_RESIZE_PATH);
+      const media_date = new Date(media.created_on * 1000);
+
+      const resizedImageDir = path.join(
+        SMALL_RESIZE_PATH,
+        `${media_date.getFullYear()}`,
+        `${media_date.getMonth() + 1}`
+      );
+      // does a smol dir exist for image??
+      const resizeDirStat = fsSync.statSync(resizedImageDir, {
+        throwIfNoEntry: false,
+      });
+      if (!resizeDirStat?.isDirectory()) {
+        // make dir
+        console.log(`making directory ${resizedImageDir}`);
+        fsSync.mkdirSync(resizedImageDir, { recursive: true });
+      }
+
+      const { name: imageNameNoExt } = path.parse(media.uri);
+      const resizedJpegPath = path.format({
+        dir: resizedImageDir,
+        name: imageNameNoExt,
+        ext: "jpg",
+      });
+      // this is the extensionless path
+
+      const smallJpegStat = fsSync.statSync(resizedJpegPath, {
+        throwIfNoEntry: false,
+      });
+      if (!smallJpegStat?.isFile()) {
+        const resizedBuffer = await sharp(pathToMedia(media.uri))
+          .resize({ width: 500, withoutEnlargement: true })
+          .jpeg({ quality: 70, progressive: true })
+          .toFile(resizedJpegPath);
+      }
+
+      res.sendFile(resizedJpegPath, {
+        headers: { "Content-Type": "image/jpeg" },
+      });
+      return;
+    }
+  });
+
+  app.get("/m/m/:media_id", async (req, res) => {
+    const media = await getMediaById(db, req.params.media_id);
+
+    if (media) {
+      await insertOrFetchMetaFromMediaIdAtPath(
+        db,
+        req.params["media_id"],
+        pathToMedia(media.uri)
+      );
+
+      // const uri = media.uri.toLowerCase();
+      // // TODO(marcos): refactor this path content type stuff
+      // const contentType = uri.endsWith(".heic")
+      //   ? "image/heic"
+      //   : uri.endsWith(".heif") || uri.endsWith(".hif")
+      //   ? "image/heif"
+      //   : uri.endsWith(".jpg") || uri.endsWith(".jpeg")
+      //   ? "image/jpeg"
+      //   : undefined;
+
+      // does the resized version exist?
+      // check SMALL_RESIZE_PATH first
+      const pathForResizedMedia = path.join(MEDIUM_RESIZE_PATH);
+      const media_date = new Date(media.created_on * 1000);
+
+      const resizedImageDir = path.join(
+        MEDIUM_RESIZE_PATH,
+        `${media_date.getFullYear()}`,
+        `${media_date.getMonth() + 1}`
+      );
+      // does a smol dir exist for image??
+      const resizeDirStat = fsSync.statSync(resizedImageDir, {
+        throwIfNoEntry: false,
+      });
+      if (!resizeDirStat?.isDirectory()) {
+        // make dir
+        console.log(`making directory ${resizedImageDir}`);
+        fsSync.mkdirSync(resizedImageDir, { recursive: true });
+      }
+
+      const { name: imageNameNoExt } = path.parse(media.uri);
+      const resizedJpegPath = path.format({
+        dir: resizedImageDir,
+        name: imageNameNoExt,
+        ext: "jpg",
+      });
+      // this is the extensionless path
+
+      const resizedJpegStat = fsSync.statSync(resizedJpegPath, {
+        throwIfNoEntry: false,
+      });
+      if (!resizedJpegStat?.isFile()) {
+        await sharp(pathToMedia(media.uri))
+          .resize({ width: 1080, withoutEnlargement: true })
+          .jpeg({ quality: 70, progressive: true })
+          .toFile(resizedJpegPath);
+      }
+
+      res.sendFile(resizedJpegPath, {
+        headers: { "Content-Type": "image/jpeg" },
+      });
+      return;
+    }
+  });
+
   // GET /upload
   //
   app.get("/upload", withUserMiddleware(db), (req, res) => {
@@ -499,7 +656,7 @@ bootstrapDb().then(({ db, instaStore }) => {
           db,
           postMedia,
           req.user.id,
-          ROOT_PATH
+          ROOT_MEDIA_PATH
         );
         const postId = await insertPostForUser(db, mediaIds, req.user.id);
         res.redirect(`/p/${postId}`);
