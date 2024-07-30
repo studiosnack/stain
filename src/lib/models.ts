@@ -76,6 +76,7 @@ export async function getMediaById(
   db: Database,
   id: string
 ): Promise<Media | undefined> {
+  // TODO(marcos): parse created_on/deleted_on as dates * 1000
   return db.get("select * from media where id = :media_id", {
     ":media_id": id,
   });
@@ -194,6 +195,13 @@ export async function existingCredentialsForUsername(
   });
 }
 
+export async function getPostForId(
+  db: Database,
+  postId: string
+): Promise<Post | undefined> {
+  return db.get(`SELECT * from posts where id = :id`, { ":id": postId });
+}
+
 export async function getPostsByUsername(
   db: Database,
   username: string
@@ -209,8 +217,10 @@ export async function getPostsByUsername(
   );
 }
 type Post = {
+  id: string;
   media: Media[];
   title?: string;
+  user_id: string;
   creation_timestamp?: number;
 };
 
@@ -487,4 +497,27 @@ export async function insertPostForUser(
     console.error(err);
   }
   return id;
+}
+
+export async function updateTitleForPost(
+  db: Database,
+  postId: string,
+  title: string
+): Promise<string> {
+  try {
+    await db.run(
+      `
+      UPDATE posts SET title = :title where id = :postId
+    `,
+      {
+        ":title": title,
+        ":postId": postId,
+      }
+    );
+  } catch (err) {
+    console.error(`failed to update title of post with id ${postId}`);
+    console.error(err);
+    throw new Error(`failed to update title of post with id ${postId}`);
+  }
+  return title;
 }
