@@ -23,7 +23,7 @@ body
       each im, idx in media
         figure.foto(data-idx=idx data-media-id=im.media_id id=im.media_id)
           img(
-            src=`/m/o/${im.media_id}` 
+            src=`/m/xl/${im.media_id}` 
             width=allMeta[idx].sharp_metadata.width 
             height=allMeta[idx].sharp_metadata.height
             style=`max-width: ${allMeta[idx].sharp_metadata.width}px;`
@@ -34,10 +34,14 @@ body
       div.description
         p= media[0].post_title || media[0].media_title
       div.meta
+        a(href=`/${user.username}`)= user.username
+        span(style="margin: 0 .25em;")| @
         span.date= new Intl.DateTimeFormat('en-us').format(new Date(media[0].post_created_on*1000))
         if media.length > 1 
           span.scrollPosition= `${1} of ${media.length}`
         a.link(href="javascript:" title="copy a link to this photo")|  🔗
+        if (userOwnsMedia) 
+          a.dl_link(href=`javascript:` title="download this photo")|  💾
         
 
   if (userOwnsMedia) 
@@ -57,6 +61,8 @@ body
           const mediaId = visibleEntry.dataset?.mediaId;
           if (mediaId) {
             window.location.replace(`#${mediaId}`)
+              
+            document.querySelector('.dl_link').setAttribute('href', `/m/o/${mediaId}`)
           }
         }
       };
@@ -74,7 +80,7 @@ body
       const hashMediaId = window.location.hash.replace('#','');
       document.getElementById(`${hashMediaId}`).scrollIntoView();
     }
-    
+        
     document.querySelector('.link').addEventListener('click', () => {
       navigator.clipboard.writeText(window.location.href).then(() => {
         document.querySelector('.link').innerText = '✅'

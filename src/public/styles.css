@@ -5,7 +5,7 @@
   --bg-color-light: #fdfdfd;
   --bg-color-dark: #444;
 
-  --fg-color-light: black;
+  --fg-color-light: #222;
   --fg-color-dark: #fafafa;
 }
 
@@ -17,9 +17,21 @@ body {
 
 html {
   background: var(--bg-color-light);
-  color: #222;
+  color: var(--fg-color-light);
   font-family: "MD IO";
   --overview-post-dimension: 250px;
+
+  & a:link,
+  & a:visited {
+    color: var(--fg-color-light);
+  }
+  & a:focus {
+    color: darkcyan;
+  }
+  & a:hover,
+  & a:active {
+    color: var(--fg-color-light);
+  }
 }
 @media (prefers-color-scheme: dark) {
   html {
@@ -34,6 +46,17 @@ html {
       border-bottom: 1px solid var(--fg-color-dark);
     }
   }
+  & a:link,
+  & a:visited {
+    color: var(--fg-color-dark);
+  }
+  & a:focus {
+    color: darkcyan;
+  }
+  & a:hover,
+  & a:active {
+    color: var(--fg-color-dark);
+  }
 }
 .container {
   display: flex;
@@ -44,6 +67,17 @@ html {
 pre {
   font-family: "MD IO";
   font-size: 12px;
+}
+
+.backHomeLink {
+  margin: 1em 0.7em;
+
+  & a {
+    text-decoration: none;
+    font-weight: bold;
+    letter-spacing: 2px;
+    font-size: 14px;
+  }
 }
 
 .fotoBox {
@@ -143,7 +177,7 @@ pre.meta {
 
   & .description {
     padding-bottom: 1em;
-    border-bottom-color: var(--fg-color-light);
+    border-bottom: 1px solid var(--fg-color-light);
     margin-bottom: 0.5em;
   }
   & .meta {
@@ -163,8 +197,12 @@ pre.meta {
       margin-right: 1em;
     }
 
-    & .link {
+    & .link,
+    & .dl_link {
       text-decoration: none;
+    }
+    & .dl_link {
+      margin-left: 15px;
     }
   }
 }
@@ -207,5 +245,8 @@ pre.meta {
     & .meta {
       padding: 0 0;
     }
+  }
+  .backHomeLink {
+    margin-top: 1em;
   }
 }
