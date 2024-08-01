@@ -63,6 +63,7 @@ type Invite = {
 type Media = {
   id: string;
   uri: string; // a relative path
+  user_id: string;
   title?: string;
   caption?: string;
   created_on: number;

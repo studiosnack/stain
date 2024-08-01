@@ -70,7 +70,7 @@ pre {
 }
 
 .backHomeLink {
-  margin: 1em 0.7em;
+  /* margin: 1em 0.7em; */
 
   & a {
     text-decoration: none;
@@ -162,13 +162,18 @@ pre.meta {
   text-align: right;
 }
 
+.postTitle {
+  width: 800px;
+  margin: 10vh auto 5vh;
+}
+
 .fotoCaption {
   font-family: Lapidar;
   font-weight: 200;
 
   & .description,
   & .meta {
-    padding: 0 0.5em;
+    padding: 0 12px;
   }
 
   & > .spacer {
@@ -249,4 +254,12 @@ pre.meta {
   .backHomeLink {
     margin-top: 1em;
   }
+}
+
+form textarea {
+  font-size: 16px;
+}
+.main {
+  width: 600px;
+  margin: 10vh auto;
 }
