@@ -149,11 +149,11 @@ type ParsedClientDataJson = {
 bootstrapDb().then(({ db, instaStore }) => {
   // Multer middleware
   const storage = multer.diskStorage({
-    destination: function (_req, _res, cb) {
+    destination: function (req, _res, cb) {
       const now = new Date();
       const year = `${now.getFullYear()}`;
       const month = `${now.getMonth() + 1}`;
-      const dest = path.join(UPLOAD_PATH, year, month);
+      const dest = path.join(UPLOAD_PATH, req?.user?.id, year, month);
       fsSync.mkdirSync(dest, { recursive: true });
       cb(null, dest);
     },
@@ -405,6 +405,55 @@ bootstrapDb().then(({ db, instaStore }) => {
     res.redirect("/login");
   });
 
+  app.put(
+    "/p/:post_id/title",
+    express.json(),
+    withUserMiddleware(db),
+    async (req, res, next) => {
+      const post = await getPostForId(db, req.params.post_id);
+      if (req.user != null && post?.user_id === req.user.id) {
+        const nextTitle = await updateTitleForPost(db, post.id, req.body.title);
+        return res
+          .set({ "content-type": "application/json" })
+          .send({ title: nextTitle })
+          .end();
+      } else {
+        return res.sendStatus(403).send("hc svnt dracones");
+      }
+    }
+  );
+
+  app.get(
+    "/p/:post_id/meta",
+    express.json(),
+    withUserMiddleware(db),
+    async (req, res, next) => {
+      const post = await getPostForId(db, req.params.post_id);
+
+      let media = await getAllMediaForPost(db, req.params.post_id);
+      media = media.map((m) => ({
+        ...m,
+        media_meta: JSON.parse(m.media_meta),
+      }));
+
+      const allMeta = await Promise.all(
+        media.map((foto) =>
+          insertOrFetchMetaFromMediaIdAtPath(
+            db,
+            foto.media_id,
+            pathToMedia(foto.media_uri)
+          )
+        )
+      );
+
+      res.render("meta", { allMeta, media, post });
+      // if (req.user != null && post?.user_id === req.user.id) {
+      //   const nextTitle = await updateTitleForPost(db, post.id, req.body.title);
+      //   res.send(nextTitle).end();
+      // }
+    }
+  );
+
   // GET /p/:post_id
   // renders an individual post
   app.get("/p/:post_id", withUserMiddleware(db), async (req, res) => {
@@ -452,19 +501,6 @@ bootstrapDb().then(({ db, instaStore }) => {
       res.send("oh no");
     }
   });
-
-  app.put(
-    "/p/:post_id/title",
-    express.json(),
-    withUserMiddleware(db),
-    async (req, res, next) => {
-      const post = await getPostForId(db, req.params.post_id);
-      if (req.user != null && post?.user_id === req.user.id) {
-        const nextTitle = await updateTitleForPost(db, post.id, req.body.title);
-        res.send(nextTitle).end();
-      }
-    }
-  );
 
   // GET /m/o/:media_id
   // this gets the 'original' media. the idea is we have another
@@ -526,11 +562,12 @@ bootstrapDb().then(({ db, instaStore }) => {
 
       // does the resized version exist?
       // check SMALL_RESIZE_PATH first
-      const pathForResizedMedia = path.join(SMALL_RESIZE_PATH);
+      const pathForResizedMedia = path.join(SMALL_RESIZE_PATH, media.user_id);
       const media_date = new Date(media.created_on * 1000);
 
       const resizedImageDir = path.join(
-        SMALL_RESIZE_PATH,
+        pathForResizedMedia,
+
         `${media_date.getFullYear()}`,
         `${media_date.getMonth() + 1}`
       );
@@ -591,11 +628,12 @@ bootstrapDb().then(({ db, instaStore }) => {
 
       // does the resized version exist?
       // check SMALL_RESIZE_PATH first
-      const pathForResizedMedia = path.join(MEDIUM_RESIZE_PATH);
+      const pathForResizedMedia = path.join(MEDIUM_RESIZE_PATH, media.user_id);
       const media_date = new Date(media.created_on * 1000);
 
       const resizedImageDir = path.join(
-        MEDIUM_RESIZE_PATH,
+        pathForResizedMedia,
+
         `${media_date.getFullYear()}`,
         `${media_date.getMonth() + 1}`
       );
@@ -646,11 +684,15 @@ bootstrapDb().then(({ db, instaStore }) => {
 
       // does the resized version exist?
       // check SMALL_RESIZE_PATH first
-      const pathForResizedMedia = path.join(EXTRA_LARGE_RESIZE_PATH);
+      const pathForResizedMedia = path.join(
+        EXTRA_LARGE_RESIZE_PATH,
+        media.user_id
+      );
       const media_date = new Date(media.created_on * 1000);
 
       const resizedImageDir = path.join(
-        EXTRA_LARGE_RESIZE_PATH,
+        pathForResizedMedia,
+
         `${media_date.getFullYear()}`,
         `${media_date.getMonth() + 1}`
       );

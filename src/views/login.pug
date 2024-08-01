@@ -1,20 +1,21 @@
 <!doctype html>
 html
   head
-    
+    link(rel="stylesheet" href="/styles.css")
     script.
       window.ascii_challenge = "#{challenge}";
     script(src="/login.js" defer)
 
 body
-  p sign in
-
-  form
-    div
-      button(type="submit", id="login_button" value="login").
-        login
-        
-      //- label
-        //- span username
-        // input(type=text, name="username" autocomplete="username webauthn")
-        
+  .main
+    p sign in
+  
+    form
+      div
+        button(type="submit", id="login_button" value="login").
+          login
+          
+        //- label
+          //- span username
+          // input(type=text, name="username" autocomplete="username webauthn")
+          

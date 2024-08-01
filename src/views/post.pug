@@ -36,7 +36,10 @@ body
       div.meta
         a(href=`/${user.username}`)= user.username
         span(style="margin: 0 .25em;")| @
-        span.date= new Intl.DateTimeFormat('en-us').format(new Date(media[0].post_created_on*1000))
+        span.date
+          = new Intl.DateTimeFormat('en-us').format(new Date(media[0].post_created_on*1000))
+          if (userOwnsMedia)
+            a(href=`/p/${post.id}/meta` title="edit this post" style="margin-left: .25em")| 📝
         if media.length > 1 
           span.scrollPosition= `${1} of ${media.length}`
         a.link(href="javascript:" title="copy a link to this photo")|  🔗
@@ -62,7 +65,7 @@ body
           if (mediaId) {
             window.location.replace(`#${mediaId}`)
               
-            document.querySelector('.dl_link').setAttribute('href', `/m/o/${mediaId}`)
+            document.querySelector('.dl_link')?.setAttribute('href', `/m/o/${mediaId}`)
           }
         }
       };

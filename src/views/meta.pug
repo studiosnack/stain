@@ -1,0 +1,129 @@
+doctype html
+
+head
+  title= postTitle ? `${user.username}: ${postTitle}` : 'fotos'
+  meta(charset="utf-8")
+  meta(name="viewport" content="width=device-width, initial-scale=1")
+
+  meta(property="description"  content=postTitle)
+  meta(property="og:description"  content=post.title)
+
+  each im, idx in media
+    meta(property="og:image"  content=`${origin}/m/o/${im.media_id}`)
+    meta(property="og:image:type"  content="image/jpeg")
+    meta(property="og:image:width"  content=allMeta[idx].sharp_metadata.width)
+    meta(property="og:image:height"  content=allMeta[idx].sharp_metadata.height)
+
+  link(rel="stylesheet" href="/styles.css")
+
+body
+
+  p
+    a(href=`.`)
+      back to post
+  form(class="postTitle" action="title" method="put" name="postTitle")
+    p
+      update post title
+    textarea(name="title")= post.title
+    input(type="submit")
+
+  each im, idx in media
+    .container            
+      .fotoBox
+        figure.foto(data-idx=idx data-media-id=im.media_id id=im.media_id)
+          img(
+            src=`/m/xl/${im.media_id}` 
+            width=allMeta[idx].sharp_metadata.width 
+            height=allMeta[idx].sharp_metadata.height
+            style=`max-width: ${allMeta[idx].sharp_metadata.width}px;`
+          )
+          figcaption= im.media_caption || im.media_title || im.post_title
+      .fotoCaption
+        div.spacer
+        div.description
+          p= media[0].media_title
+      //- div.meta
+      //-   a(href=`/${user.username}`)= user.username
+      //-   span(style="margin: 0 .25em;")| @
+      //-   span.date= new Intl.DateTimeFormat('en-us').format(new Date(media[0].post_created_on*1000))
+      //-   if media.length > 1 
+      //-     span.scrollPosition= `${1} of ${media.length}`
+      //-   a.link(href="javascript:" title="copy a link to this photo")|  🔗
+      //-   if (userOwnsMedia) 
+      //-     a.dl_link(href=`javascript:` title="download this photo")|  💾
+        
+
+  //- if (userOwnsMedia) 
+  //-   details
+  //-     pre.meta #{JSON.stringify(media,null,2)}
+  //-     pre.meta #{JSON.stringify(allMeta, null, 2)}
+
+script.
+  function jsonRequestFromFormData(path, formData, method="POST") {
+    return new Request(path, {
+      body: JSON.stringify(Object.fromEntries(formData.entries())),
+      headers: {"content-type": "application/json"},
+      method,
+    });
+    
+  }
+  const f = document.querySelector(".postTitle")
+  f.onsubmit = evt => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    const fd = new FormData(f);
+    const jsfd = Object.fromEntries(fd.entries())
+    const req = jsonRequestFromFormData(f.action, fd, "PUT")
+    console.log(f.action, fd)
+      
+    return fetch(
+      req
+    ).then(res => res.json()).then(res => {
+      console.log(evt, res)
+      
+    })
+    
+  }
+  console.log(f)
+//-   script.
+//- 
+//-     //- bootstrap intersection observer if needed
+//-     if (document.querySelectorAll(".foto").length > 1) {
+//-       const observerCallback = (entries, observer) => {
+//-         const visibleEntry = entries.filter(ent => ent.isIntersecting)[0]?.target;
+//-         const index = Number(visibleEntry?.dataset?.idx ?? 1)
+//-         document.querySelector('.scrollPosition').innerText = `${index+1} of #{media.length}`
+//-         if (visibleEntry) {
+//-           const mediaId = visibleEntry.dataset?.mediaId;
+//-           if (mediaId) {
+//-             window.location.replace(`#${mediaId}`)
+//-               
+//-             document.querySelector('.dl_link').setAttribute('href', `/m/o/${mediaId}`)
+//-           }
+//-         }
+//-       };
+//- 
+//-       let observer = new IntersectionObserver(observerCallback, {
+//-         root: document.getElementsByClassName(".fotoBox")[0], 
+//-         rootMargin:"5px",
+//-         threshold: 0.80
+//-       });
+//-       
+//-       document.querySelectorAll(".foto").forEach(el => observer.observe(el))
+//-     }
+//-     
+//-     if (window.location.hash !== '') {
+//-       const hashMediaId = window.location.hash.replace('#','');
+//-       document.getElementById(`${hashMediaId}`).scrollIntoView();
+//-     }
+//-         
+//-     document.querySelector('.link').addEventListener('click', () => {
+//-       navigator.clipboard.writeText(window.location.href).then(() => {
+//-         document.querySelector('.link').innerText = '✅'
+//-       }).catch(err => {console.log(err)})
+//-     })
+//-     
+//-     document.querySelectorAll('.foto').forEach(el => el.addEventListener('click', (evt) => {
+//-       evt.currentTarget.requestFullscreen().catch(err => {console.error(err); console.log('oops')})
+//-     }));
+//-     
