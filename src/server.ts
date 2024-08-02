@@ -9,6 +9,7 @@ const VALIDATED_DOMAINS = [
   "https://foto.generic.cx",
   // mdns here
   `http://skane.local:${PORT}`,
+  "https://snaps.studiosnack.net",
 ];
 const SESSION_SECRET = "water in my head";
 
