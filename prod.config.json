@@ -1,0 +1,7 @@
+{
+  "deleteDirOnStart": true,
+  "copyFiles": true,
+  "extensions": [".ts"],
+  "stripLeadingPaths": true,
+  "outDir": "dist"
+}

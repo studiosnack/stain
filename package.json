@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "build:dev": "swc src --copy-files --out-dir dist --strip-leading-paths --only **/*.ts",
-    "build:prod": "swc src --only \"**/*.ts\" --copy-files --out-dir dist --strip-leading-paths",
+    "build:prod": "swc --cli-config-file prod.config.json src",
     "build:watch": "swc src --only \"**/*.ts\" --copy-files --out-dir dist --watch"
   },
   "targets": {
