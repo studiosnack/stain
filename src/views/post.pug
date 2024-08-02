@@ -9,7 +9,7 @@ head
   meta(property="og:description"  content=post.title)
 
   each im, idx in media
-    meta(property="og:image"  content=`${origin}/m/o/${im.media_id}`)
+    meta(property="og:image"  content=`${origin}/m/m/${im.media_id}`)
     meta(property="og:image:type"  content="image/jpeg")
     meta(property="og:image:width"  content=allMeta[idx].sharp_metadata.width)
     meta(property="og:image:height"  content=allMeta[idx].sharp_metadata.height)
