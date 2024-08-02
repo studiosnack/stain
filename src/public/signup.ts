@@ -1,52 +1,52 @@
-const form = document.getElementById('signupform') as HTMLFormElement | void;
+const form = document.getElementById("signupform") as HTMLFormElement | void;
 
 const signupHandler = async (evt: SubmitEvent) => {
   evt.preventDefault();
 
   const currentForm = evt.currentTarget as HTMLFormElement;
   if (!currentForm) {
-    throw new Error('cannot signup without a form');
+    throw new Error("cannot signup without a form");
   }
   const fd = new FormData(currentForm);
 
   const usePassKey = await canCreateWithPassKey();
   const createOptions = getPassKeyOptions(
-    fd.get('passkey_id') as string,
-    fd.get('username') as string,
-    fd.get('name') as string,
-    JSON.parse(fd.get('existing_credentials') as string).map((cred) => ({
+    fd.get("passkey_id") as string,
+    fd.get("username") as string,
+    fd.get("name") as string,
+    JSON.parse(fd.get("existing_credentials") as string).map((cred) => ({
       ...cred,
       id: atou8(cred.id),
-    })),
+    }))
   );
 
   let cred: PublicKeyCredential | null = null;
 
   try {
     cred = (await navigator.credentials.create(
-      createOptions,
+      createOptions
     )) as PublicKeyCredential;
   } catch (err) {
-    console.log('failed or somehow already made credentials');
+    console.log("failed or somehow already made credentials");
     if (err instanceof DOMException) {
       switch (err.name) {
-        case 'InvalidStateError':
-          console.error('InvalidStateError');
+        case "InvalidStateError":
+          console.error("InvalidStateError");
           return;
 
-        case 'NotAllowedError':
-          console.error('NotAllowedError');
+        case "NotAllowedError":
+          console.error("NotAllowedError");
           return;
       }
     }
   }
 
   if (cred == null) {
-    console.error('cannot register with a null credential')
+    console.error("cannot register with a null credential");
     return;
   }
   const cdj = JSON.parse(
-    new TextDecoder().decode(cred.response.clientDataJSON),
+    new TextDecoder().decode(cred.response.clientDataJSON)
   );
 
   const resp = cred.response as AuthenticatorAttestationResponse;
@@ -56,21 +56,23 @@ const signupHandler = async (evt: SubmitEvent) => {
   // TODO deal with null pubkey/authdata here, not sure how
   // that happens, but still...
 
-  fd.append('authdata', u8toa(authData));
-  fd.append('pubkey', u8toa(pubKey));
+  fd.append("authdata", u8toa(authData));
+  fd.append("pubkey", u8toa(pubKey));
 
   if (
-    cdj.type != 'webauthn.create' ||
-    ('crossOrigin' in cdj && cdj.crossOrigin) ||
+    cdj.type != "webauthn.create" ||
+    ("crossOrigin" in cdj && cdj.crossOrigin) ||
     cdj.origin !== window.location.origin
   ) {
     // handle error
-    console.error('oops, bad passkey made');
+    console.error("oops, bad passkey made");
   } else {
     await fetch(currentForm.action, {
-      method: 'POST',
+      method: "POST",
       body: fd,
     });
+
+    window.location.replace("/");
   }
 };
 
@@ -103,7 +105,7 @@ function parseAuthData(authData: Uint8Array) {
   // attested credential data starts at offset 33
   // https://w3c.github.io/webauthn/#sctn-attested-credential-data
   const signCount = new DataView(
-    new Uint8Array(authData.buffer, 33, 4).buffer,
+    new Uint8Array(authData.buffer, 33, 4).buffer
   ).getUint32();
 
   const aaguid = new Uint8Array(authData.buffer, 37, 16);
@@ -130,7 +132,7 @@ const atou8 = (b64ascii: string): Uint8Array =>
   Uint8Array.from(atob(b64ascii), (c) => c.charCodeAt(0));
 // @ts-ignore
 const u8toa = (u8arr: Uint8Array): string =>
-  btoa(Array.from(u8arr, (c) => String.fromCharCode(c)).join(''));
+  btoa(Array.from(u8arr, (c) => String.fromCharCode(c)).join(""));
 
 const disableSignupIfNecessary = async () => {
   const canSignup = await canCreateWithPassKey();
@@ -140,7 +142,7 @@ const disableSignupIfNecessary = async () => {
   if (!canSignup) {
     form.elements.submit.disabled = true;
     form.elements.submit.value =
-      'need to sign up with either chrome or ios 16+';
+      "need to sign up with either chrome or ios 16+";
   }
 };
 
@@ -163,8 +165,8 @@ async function canCreateWithPassKey() {
 const getPassKeyOptions = (
   uidB64: string,
   username: string,
-  displayName: string = '',
-  excludeCredentials: PublicKeyCredentialDescriptor[] = [],
+  displayName: string = "",
+  excludeCredentials: PublicKeyCredentialDescriptor[] = []
 ): CredentialCreationOptions => {
   // const atou8 = (ascii: string) =>
   //   Uint8Array.from(atob(ascii), (c) => c.charCodeAt(0));
@@ -175,7 +177,7 @@ const getPassKeyOptions = (
         id: undefined, // use default (hostname)
         // This field is required to be set to something, but you can
         // ignore it.
-        name: '',
+        name: "",
       },
 
       user: {
@@ -201,11 +203,11 @@ const getPassKeyOptions = (
       // coverage so far.
       pubKeyCredParams: [
         {
-          type: 'public-key',
+          type: "public-key",
           alg: -7,
         },
         {
-          type: 'public-key',
+          type: "public-key",
           alg: -257,
         },
       ],
@@ -215,7 +217,7 @@ const getPassKeyOptions = (
       challenge: new Uint8Array([0]),
 
       authenticatorSelection: {
-        authenticatorAttachment: 'platform',
+        authenticatorAttachment: "platform",
         requireResidentKey: true,
       },
 
@@ -225,5 +227,5 @@ const getPassKeyOptions = (
   };
 };
 
-form?.addEventListener('submit', signupHandler);
+form?.addEventListener("submit", signupHandler);
 disableSignupIfNecessary();
