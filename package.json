@@ -4,13 +4,13 @@
   "license": "MIT",
   "volta": {
     "node": "22.5.1",
-    "yarn": "1.22.19"
+    "yarn": "1.22.22"
   },
   "scripts": {
     "dev": "nodemon src/server.js",
-    "build:dev": "swc src --only **/*.ts --copy-files --out-dir dist",
-    "build:prod": "swc src --only **/*.ts --copy-files --out-dir dist",
-    "build:watch": "swc src --only **/*.ts --copy-files --out-dir dist --watch"
+    "build:dev": "swc src --copy-files --out-dir dist --strip-leading-paths --only **/*.ts",
+    "build:prod": "swc src --only \"**/*.ts\" --copy-files --out-dir dist --strip-leading-paths",
+    "build:watch": "swc src --only \"**/*.ts\" --copy-files --out-dir dist --watch"
   },
   "targets": {
     "frontend": {
@@ -29,9 +29,11 @@
     }
   },
   "dependencies": {
+    "@swc/cli": "^0.4.0",
+    "@swc/core": "^1.7.4",
     "@swc/helpers": "^0.3.8",
     "@types/better-sqlite3": "^7.6.5",
-    "better-sqlite3": "^8.6.0",
+    "better-sqlite3": "^11.1.2",
     "dotenv": "^16.3.1",
     "exif-reader": "2.0.1",
     "express": "^4.17.2",
@@ -47,8 +49,6 @@
     "sqlite3": "^5.0.2"
   },
   "devDependencies": {
-    "@swc/cli": "^0.1.55",
-    "@swc/core": "^1.2.158",
     "@types/express": "^4.17.17",
     "@types/express-session": "^1.17.7",
     "@types/multer": "^1.4.7",

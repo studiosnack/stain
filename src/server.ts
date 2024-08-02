@@ -186,6 +186,7 @@ bootstrapDb().then(({ db, instaStore }) => {
   app.set("views", VIEWS_DIR);
   app.set("view engine", "pug");
 
+  console.log(`${__dirname}/public`);
   app.use(
     express.static(`${__dirname}/public`, {
       setHeaders(res, path, stat) {
@@ -797,7 +798,7 @@ bootstrapDb().then(({ db, instaStore }) => {
   });
 
   console.log(`listening of ${PORT}`);
-  app.listen(PORT);
+  app.listen(PORT, "localhost");
 });
 
 function withUserMiddleware(db: PDatabase) {
