@@ -6,7 +6,7 @@ html
 
   body.main
     p
-      | hi #{user.username || ''} 
+      | hi #{user.name || ''} 
       if user.username
         a(href="/logout") logout?
 
@@ -17,9 +17,68 @@ html
             login
       if user.username
         li
+          | your photos 
           a(href=`/${user.username}`).
             #{user.username}
         li
           a(href="/upload").
             upload new photos
-        
+  if user.username
+    p
+      | some admin stuff
+    ul
+      if user.referenced_by == null
+        li
+          span| add user
+          form(action="/register/username" method="POST")
+            input(type="text" placeholder="username" name="requested_handle")
+            input(type="text" placeholder="friendly name" name="common_name")
+            input(type="submit")
+        if usersToInvite.length > 0
+            li
+              span| invite existing/referenced user
+              form(action="/admin/invite" method="POST")
+                select(name="userId")
+                  each user in usersToInvite
+                    option(value=user.id) #{user.username}
+                input(type="submit" value="invite")
+        if invitedUsers.length > 0
+          li
+            ul
+              each invite in invitedUsers
+                li #{invite.username}: 
+                  span.inviteCode(style="cursor: alias;") #{invite.code}
+        if usersToPromote.length > 0
+            li
+              span| promote referenced user
+              form(action="/admin/enable" method="POST")
+                select(name="userId")
+                  each user in usersToPromote
+                    option(value=user.id) #{user.username}
+                input(type="submit" value="promote")
+      li
+        span| change username
+        form(action="/admin/username" method="POST")
+          input(type="text" placeholder=`(currently ${user.username})` name="updated_un")
+          //- input(type="submit")
+      li
+        span| change name
+        form(action="/admin/name" method="POST")
+          input(type="text" placeholder=`(currently ${user.name})` name="updated_cn")
+          //- input(type="submit")
+      
+      script.
+        document.querySelectorAll('.inviteCode').forEach(
+        codeSpan => codeSpan.addEventListener('click', (evt) => {
+          const el = evt.currentTarget;
+          const inviteUrl = `${window.location.origin}/signup/${el.innerText}`
+            navigator.clipboard.writeText(inviteUrl).then(() => {
+              const checkbox = document.createElement('span');
+              console.log(el, el.parentNode)
+              checkbox.innerText = '✅'
+              console.log(checkbox)
+              el.parentNode.appendChild(checkbox);
+              setTimeout(() => {el.parentNode.removeChild(checkbox)}, 5_000)
+            }).catch(err => {console.log(err)})
+          })
+        )

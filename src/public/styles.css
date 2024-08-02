@@ -263,3 +263,7 @@ form textarea {
   width: 600px;
   margin: 10vh auto;
 }
+
+.main ul li {
+  line-height: 2em;
+}

@@ -11,7 +11,7 @@ const VALIDATED_DOMAINS = [
   `http://skane.local:${PORT}`,
   "https://snaps.studiosnack.net",
 ];
-const SESSION_SECRET = "water in my head";
+const SESSION_SECRET = process.env.SESSION_SECRET ?? "water in my head";
 
 // express and middleware
 import express from "express";
@@ -73,6 +73,15 @@ import {
   insertPostForUser,
   updateTitleForPost,
   getPostForId,
+  updateUsername,
+  updateName,
+  insertNewUser,
+  getInvitableUsers,
+  getReferencedUsers,
+  selectInvitedUsers,
+  createInviteForUser,
+  type User,
+  type InvitedUser,
 } from "./lib/models.js";
 
 import {
@@ -118,10 +127,7 @@ import type {
 
 declare module "express-serve-static-core" {
   interface Request {
-    user?: {
-      name: string;
-      id: string;
-    };
+    user?: User;
   }
 }
 
@@ -151,10 +157,14 @@ bootstrapDb().then(({ db, instaStore }) => {
   // Multer middleware
   const storage = multer.diskStorage({
     destination: function (req, _res, cb) {
+      if (req.user?.id == null) {
+        // only allow multer uploads per-user when logged in
+        return cb(new Error("need to be logged in to upload media"), "");
+      }
       const now = new Date();
       const year = `${now.getFullYear()}`;
       const month = `${now.getMonth() + 1}`;
-      const dest = path.join(UPLOAD_PATH, req?.user?.id, year, month);
+      const dest = path.join(UPLOAD_PATH, req.user.id, year, month);
       fsSync.mkdirSync(dest, { recursive: true });
       cb(null, dest);
     },
@@ -183,6 +193,8 @@ bootstrapDb().then(({ db, instaStore }) => {
   // App goes here
   const app = express();
   app.use(sess);
+  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json());
 
   app.set("views", VIEWS_DIR);
   app.set("view engine", "pug");
@@ -372,6 +384,117 @@ bootstrapDb().then(({ db, instaStore }) => {
     });
   });
 
+  app.post("/admin/invite", withUserMiddleware(db), async (req, res) => {
+    if (req.user?.id == null) {
+      return res.status(403).send("hc svnt dracones");
+    }
+
+    console.log(req.body);
+    const userToInvite = await getUserById(db, req.body.userId);
+    if (!userToInvite) {
+      return res.status(400).send("qvo vadis?");
+    }
+    console.log(
+      `${req.user.username} (${req.user.id}) inviting referenced user ${userToInvite?.username} (${userToInvite?.id})`
+    );
+    const invite = await createInviteForUser(db, userToInvite.id, req.user.id);
+    res.redirect("/");
+    return;
+  });
+
+  app.post("/admin/enable", withUserMiddleware(db), async (req, res) => {
+    if (req.user?.id == null) {
+      return res.status(403).send("hc svnt dracones");
+    }
+    console.log(req.body);
+    const userToPromote = await getUserById(db, req.body.userId);
+    if (!userToPromote) {
+      return res.status(400).send("qvo vadis?");
+    }
+    console.log(
+      `${req.user.username} (${req.user.id}) attempting to promote referenced user ${userToPromote?.username} (${userToPromote?.id})`
+    );
+    try {
+      await db.run(`UPDATE users set enabled = 1 where id = :enabledId`, {
+        ":enabledId": userToPromote?.id,
+      });
+    } catch (err) {
+      res.status(500).send("ista qvidem vis est!");
+    }
+    res.redirect("/");
+  });
+
+  app.post(
+    "/admin/username",
+    withUserMiddleware(db),
+
+    async (req, res) => {
+      if (req.user?.id != null) {
+        const oldUsername = req.user.username;
+        const newUsername = req.body.updated_un;
+        const newUser = await updateUsername(db, req.user.id, newUsername);
+        console.log(`updated username ${oldUsername} to ${newUsername}`);
+
+        res.redirect("/");
+        return;
+      } else {
+        res.status(403).send("hc svnt dracones").end();
+        return;
+      }
+
+      res.redirect("/");
+    }
+  );
+
+  app.post(
+    "/admin/name",
+    withUserMiddleware(db),
+
+    async (req, res) => {
+      if (req.user?.id != null) {
+        const oldUsername = req.user.username;
+        const newUsername = req.body.updated_cn;
+        const newUser = await updateName(db, req.user.id, newUsername);
+        console.log(
+          `updated user's name from ${oldUsername} to ${newUsername}`
+        );
+
+        res.redirect("/");
+        return;
+      } else {
+        res.status(403).send("hc svnt dracones").end();
+        return;
+      }
+
+      res.redirect("/");
+    }
+  );
+
+  app.post(
+    "/register/username",
+    withUserMiddleware(db),
+    async (req, res, next) => {
+      if (req.user != null && req.user.referenced_by == null) {
+        if (
+          req.body.requested_handle == null &&
+          req.body.requested_handle.trim() == ""
+        ) {
+          res.status(400).send("verba non acta").end();
+          return;
+        }
+
+        const newUser = await insertNewUser(
+          db,
+          req.body.requested_handle,
+          req.body.common_name,
+          req.user?.id
+        );
+        console.log(newUser);
+      }
+      res.redirect("/");
+    }
+  );
+
   // GET /register
   app.post("/register", upload.none(), async (req, res) => {
     const { username, passkey_id, code, pubkey, authdata } = req.body;
@@ -409,7 +532,6 @@ bootstrapDb().then(({ db, instaStore }) => {
 
   app.put(
     "/p/:post_id/title",
-    express.json(),
     withUserMiddleware(db),
     async (req, res, next) => {
       const post = await getPostForId(db, req.params.post_id);
@@ -427,7 +549,6 @@ bootstrapDb().then(({ db, instaStore }) => {
 
   app.get(
     "/p/:post_id/meta",
-    express.json(),
     withUserMiddleware(db),
     async (req, res, next) => {
       const post = await getPostForId(db, req.params.post_id);
@@ -802,8 +923,21 @@ bootstrapDb().then(({ db, instaStore }) => {
 
   // GET /
   //
-  app.get("/", withUserMiddleware(db), (req, res) => {
-    res.render("main", { user: req.user ?? {} });
+  app.get("/", withUserMiddleware(db), async (req, res) => {
+    let usersToInvite: User[] = [];
+    let usersToPromote: User[] = [];
+    let invitedUsers: InvitedUser[] = [];
+    if (req.user != null && req.user.referenced_by == null) {
+      usersToInvite = await getInvitableUsers(db, req.user.id);
+      usersToPromote = await getReferencedUsers(db, req.user.id);
+      invitedUsers = await selectInvitedUsers(db, req.user.id);
+    }
+    res.render("main", {
+      user: req.user ?? {},
+      usersToInvite,
+      usersToPromote,
+      invitedUsers,
+    });
   });
 
   console.log(`listening of ${PORT}`);
@@ -818,7 +952,9 @@ function withUserMiddleware(db: PDatabase) {
   ) {
     if (req.session.userId) {
       let user = await getUserById(db, req.session.userId);
-      req.user = user;
+      if (user) {
+        req.user = user;
+      }
     }
     next();
   };

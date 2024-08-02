@@ -9,7 +9,7 @@ import exifReader from "exif-reader";
 
 const METADATA_VERSION = 4;
 
-type User = {
+export type User = {
   id: string;
   username: string;
   name: string;
@@ -17,7 +17,28 @@ type User = {
   url: string;
   enabled: boolean;
   passkey_id: Buffer;
+  referenced_by: string | null;
 };
+
+export async function getInvitableUsers(
+  db: Database,
+  currentUserId: string
+): Promise<User[]> {
+  return await db.all(
+    `select * from users where enabled is true and id != :currentUserId`,
+    { ":currentUserId": currentUserId }
+  );
+}
+
+export async function getReferencedUsers(
+  db: Database,
+  currentUserId: string
+): Promise<User[]> {
+  return await db.all(
+    `select * from users where enabled is false and referenced_by = :currentUserId`,
+    { ":currentUserId": currentUserId }
+  );
+}
 
 export async function getUserByName(
   db: Database,
@@ -37,6 +58,90 @@ export async function getUserById(
   });
 }
 
+export async function insertNewUser(
+  db: Database,
+  username: string,
+  name: string = "",
+  invitingUserId: string | null
+): Promise<User | undefined> {
+  const userId = nanoid.nanoid(5);
+  await db.run(
+    "INSERT INTO users (id, username, name, enabled, referenced_by) values (:id, :username, :name, :enabled, :referenced_by)",
+    {
+      ":id": userId,
+      ":username": username,
+      ":name": name,
+      ":enabled": true,
+      ":referenced_by": invitingUserId,
+    }
+  );
+  return await getUserById(db, userId);
+}
+
+export type InvitedUser = {
+  id: string;
+  username: string;
+  name: string;
+  code: string;
+  activated_on: number;
+};
+
+export async function selectInvitedUsers(
+  db: Database,
+  invitingUser: string
+): Promise<InvitedUser[]> {
+  return db.all(
+    `SELECT 
+      users.id as id, 
+      users.username as username, 
+      users.name as name,
+      invites.code as code, 
+      invites.activated_on as activated_on 
+    FROM invites 
+    LEFT JOIN users 
+    ON users.id = invites.recipient_id
+    WHERE sender_id = :invitingUser`,
+    { ":invitingUser": invitingUser }
+  );
+}
+
+export async function updateUsername(
+  db: Database,
+  userId: string,
+  newUsername: string
+): Promise<User | undefined> {
+  try {
+    await db.run(
+      "UPDATE users set username = :newUsername where id = :userId",
+      {
+        ":newUsername": newUsername,
+        ":userId": userId,
+      }
+    );
+    return getUserById(db, userId);
+  } catch (err) {
+    console.log("ooops");
+    console.error(err);
+  }
+}
+
+export async function updateName(
+  db: Database,
+  userId: string,
+  newName: string
+): Promise<User | undefined> {
+  try {
+    await db.run("UPDATE users set name = :newName where id = :userId", {
+      ":newName": newName,
+      ":userId": userId,
+    });
+    return getUserById(db, userId);
+  } catch (err) {
+    console.log("ooops");
+    console.error(err);
+  }
+}
+
 type Invite = {
   id: number;
   recipient_id: string;
@@ -47,6 +152,33 @@ type Invite = {
   expires_on: string | null;
   deleted_on: string | null;
 };
+
+const nanoInviteId = nanoid.customAlphabet(
+  "6789BCDFGHJKLMNPQRTWbcdfghjkmnpqrtwz",
+  5
+);
+
+export async function createInviteForUser(
+  db: Database,
+  recipientId: string,
+  senderId: string
+): Promise<Invite | undefined> {
+  const code = `${nanoInviteId()}-${nanoInviteId()}`;
+  await db.run(
+    `
+    INSERT INTO invites (
+      recipient_id, 
+      sender_id, 
+      code
+    ) VALUES (
+      :recipient_id, 
+      :sender_id, 
+      :code
+    )`,
+    { ":recipient_id": recipientId, ":sender_id": senderId, ":code": code }
+  );
+  return db.get(`select * from invites where code = :code`, { ":code": code });
+}
 
 // type RawMediaType = {
 //   id: string;
