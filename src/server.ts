@@ -461,7 +461,7 @@ bootstrapDb().then(({ db, instaStore }) => {
     let media = await getAllMediaForPost(db, req.params.post_id);
     media = media.map((m) => ({ ...m, media_meta: JSON.parse(m.media_meta) }));
 
-    const allMeta = await Promise.all(
+    let meta = await Promise.all(
       media.map((foto) =>
         insertOrFetchMetaFromMediaIdAtPath(
           db,
@@ -470,6 +470,14 @@ bootstrapDb().then(({ db, instaStore }) => {
         )
       )
     );
+
+    let allMeta = meta.map((foto) => {
+      const minWidth = Math.min(1080, foto?.sharp_metadata?.width);
+      const ogHeight =
+        (minWidth * foto?.sharp_metadata?.height) / foto?.sharp_metadata?.width;
+      return { ...foto, og: { width: minWidth, height: ogHeight } };
+    });
+
     const reqUrl = new URL(req.url, `${req.protocol}://${req.headers.host}`);
     const { origin } = reqUrl;
 
