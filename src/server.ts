@@ -389,7 +389,6 @@ bootstrapDb().then(({ db, instaStore }) => {
       return res.status(403).send("hc svnt dracones");
     }
 
-    console.log(req.body);
     const userToInvite = await getUserById(db, req.body.userId);
     if (!userToInvite) {
       return res.status(400).send("qvo vadis?");
@@ -839,7 +838,7 @@ bootstrapDb().then(({ db, instaStore }) => {
 
       const { name: imageNameNoExt } = path.parse(media.uri);
 
-      const outputFormat = req.accepts(["heic", "avif", "webp", "jpg"]);
+      const outputFormat = req.accepts(["heic", "webp", "jpg"]);
       console.log(`request for output format: ${outputFormat}`);
       if (!outputFormat) {
         return res.status(406).end();
