@@ -30,3 +30,6 @@ body
             p.title #{post.title}
           if post.caption
             p.caption #{post.caption}  
+          - var photocount = Number(JSON.parse(post.media).length)
+          if photocount > 1
+            span #{photocount} 🖼️
