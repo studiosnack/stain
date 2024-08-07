@@ -636,7 +636,7 @@ bootstrapDb().then(({ db, instaStore }) => {
   // this gets the 'original' media. the idea is we have another
   // set of endpoints like /m/s/:media_id that let you have smaller
   // resized media etc
-  app.get("/m/o/:media_id", async (req, res) => {
+  app.get("/m/o/:media_id", withUserMiddleware(db), async (req, res) => {
     const media = await getMediaById(db, req.params.media_id);
 
     if (media) {
@@ -645,6 +645,12 @@ bootstrapDb().then(({ db, instaStore }) => {
         req.params["media_id"],
         pathToMedia(media.uri)
       );
+
+      // only logged in users get original media
+      if (req.user?.id == null) {
+        res.redirect(`/m/xl/${req.params.media_id}`);
+        return;
+      }
 
       const uri = media.uri.toLowerCase();
 
