@@ -24,6 +24,7 @@ body
         figure.foto(data-idx=idx data-media-id=im.media_id id=im.media_id)
           img(
             src=`/m/xl/${im.media_id}` 
+            srcset=`/m/s/${im.media_id} 500w, /m/m/${im.media_id} 1080w, /m/xl/${im.media_id} ${allMeta[idx].sharp_metadata.width}w`
             width=allMeta[idx].sharp_metadata.width 
             height=allMeta[idx].sharp_metadata.height
             style=`max-width: ${allMeta[idx].sharp_metadata.width}px;`
@@ -43,6 +44,7 @@ body
         if media.length > 1 
           span.scrollPosition= `${1} of ${media.length}`
         a.link(href="javascript:" title="copy a link to this photo")|  🔗
+        a.share(href="javascript:" title="share this photo")| 📤
         if (userOwnsMedia) 
           a.dl_link(href=`javascript:` title="download this photo")|  💾
         
@@ -88,6 +90,21 @@ body
       navigator.clipboard.writeText(window.location.href).then(() => {
         document.querySelector('.link').innerText = '✅'
       }).catch(err => {console.log(err)})
+    })
+    
+    document.querySelector('.share').addEventListener('click', () => {
+      const pageTitle = document.querySelector('.description')?.innerText?.trim() ?? ""
+      const shareData = {
+        title: pageTitle !== '' ? `${pageTitle} // #{user.username}` : `nsfmc // snaps`,
+        text: document.querySelector('.description')?.innerText?.trim(),
+        url: window.location.href,
+      };
+      console.log(shareData)
+      navigator.share(shareData).then(res => {
+        console.log(res)
+      }).catch(err => {
+        console.error(err)
+      })
     })
     
     document.querySelectorAll('.foto').forEach(el => el.addEventListener('click', (evt) => {
