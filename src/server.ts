@@ -988,7 +988,7 @@ bootstrapDb().then(({ db, instaStore }) => {
 
       const allPosts = await getPostsByUsername(db, req.params.username);
 
-      res.render("all_posts", { allPosts });
+      res.render("all_posts", { allPosts, user });
     }
   });
 
