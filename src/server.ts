@@ -37,6 +37,7 @@ const ROOT_MEDIA_PATH = path.join(__dirname, MEDIA_PATH);
 const UPLOAD_PATH = path.join(ROOT_MEDIA_PATH, "o", "uploaded");
 const SMALL_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "s");
 const MEDIUM_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "m");
+const LARGE_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "l");
 const EXTRA_LARGE_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "xl");
 
 const uploadStat = fsSync.statSync(UPLOAD_PATH, { throwIfNoEntry: false });
@@ -804,6 +805,70 @@ bootstrapDb().then(({ db, instaStore }) => {
 
       res.sendFile(resizedJpegPath, {
         headers: { "Content-Type": "image/jpeg" },
+      });
+      return;
+    }
+  });
+
+  app.get("/m/l/:media_id", async (req, res) => {
+    const media = await getMediaById(db, req.params.media_id);
+
+    if (media) {
+      await insertOrFetchMetaFromMediaIdAtPath(
+        db,
+        req.params["media_id"],
+        pathToMedia(media.uri)
+      );
+
+      // does the resized version exist?
+      // check SMALL_RESIZE_PATH first
+      const pathForResizedMedia = path.join(LARGE_RESIZE_PATH, media.user_id);
+      const media_date = new Date(media.created_on * 1000);
+
+      const resizedImageDir = path.join(
+        pathForResizedMedia,
+
+        `${media_date.getFullYear()}`,
+        `${media_date.getMonth() + 1}`
+      );
+      // does a smol dir exist for image??
+      const resizeDirStat = fsSync.statSync(resizedImageDir, {
+        throwIfNoEntry: false,
+      });
+      if (!resizeDirStat?.isDirectory()) {
+        // make dir
+        console.log(`making directory ${resizedImageDir}`);
+        fsSync.mkdirSync(resizedImageDir, { recursive: true });
+      }
+
+      const { name: imageNameNoExt } = path.parse(media.uri);
+
+      const outputFormat = req.accepts(["heic", "webp", "jpg"]);
+      console.log(`request for output format: ${outputFormat}`);
+      if (!outputFormat) {
+        return res.status(406).end();
+      }
+
+      const resizedMediaPath = path.format({
+        dir: resizedImageDir,
+        name: imageNameNoExt,
+        ext: outputFormat,
+      });
+      // this is the extensionless path
+
+      const resizedMediaStat = fsSync.statSync(resizedMediaPath, {
+        throwIfNoEntry: false,
+      });
+      if (!resizedMediaStat?.isFile()) {
+        await sharp(pathToMedia(media.uri))
+          .resize({ width: 2000, withoutEnlargement: true })
+          // @ts-ignore this is a correct format
+          .toFormat(outputFormat)
+          .toFile(resizedMediaPath);
+      }
+
+      res.sendFile(resizedMediaPath, {
+        headers: { "Content-Type": `image/${outputFormat}` },
       });
       return;
     }

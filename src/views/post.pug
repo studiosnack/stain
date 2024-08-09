@@ -21,13 +21,17 @@ body
   .container
     .fotoBox
       each im, idx in media
+        - var width = allMeta[idx].sharp_metadata.width
+        - var height = allMeta[idx].sharp_metadata.height
+        - var maxIntrinsicWidth = Math.min(400, width)
+        - var maxIntrinsicHeight = Math.floor((height / width) * maxIntrinsicWidth)
         figure.foto(data-idx=idx data-media-id=im.media_id id=im.media_id)
           img(
-            src=`/m/xl/${im.media_id}` 
-            srcset=`/m/s/${im.media_id} 500w, /m/m/${im.media_id} 1080w, /m/xl/${im.media_id} ${allMeta[idx].sharp_metadata.width}w`
-            width=allMeta[idx].sharp_metadata.width 
-            height=allMeta[idx].sharp_metadata.height
-            style=`max-width: ${allMeta[idx].sharp_metadata.width}px;`
+            src=`/m/s/${im.media_id}` 
+            srcset=`/m/s/${im.media_id} 500w, /m/m/${im.media_id} 1080w, /m/l/${im.media_id} 2000w, /m/xl/${im.media_id} ${allMeta[idx].sharp_metadata.width}w`
+            width=maxIntrinsicWidth
+            height=maxIntrinsicHeight
+            style=`max-width: ${width}px;`
           )
           figcaption= im.media_caption || im.media_title || im.post_title
     .fotoCaption
