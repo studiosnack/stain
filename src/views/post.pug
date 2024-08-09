@@ -31,6 +31,7 @@ body
             srcset=`/m/s/${im.media_id} 500w, /m/m/${im.media_id} 1080w, /m/l/${im.media_id} 2000w, /m/xl/${im.media_id} ${allMeta[idx].sharp_metadata.width}w`
             width=maxIntrinsicWidth
             height=maxIntrinsicHeight
+            loading="lazy" 
             style=`max-width: ${width}px;`
           )
           figcaption= im.media_caption || im.media_title || im.post_title
