@@ -526,7 +526,8 @@ bootstrapDb().then(({ db, instaStore }) => {
       public_key_spki: Buffer.from(atou8(pubkey)),
       backed_up: authData.backupState,
     });
-    res.redirect("/login");
+    // '/' includes login
+    res.redirect("/");
   });
 
   app.put(
@@ -936,12 +937,18 @@ bootstrapDb().then(({ db, instaStore }) => {
       usersToInvite = await getInvitableUsers(db, req.user.id);
       usersToPromote = await getReferencedUsers(db, req.user.id);
       invitedUsers = await selectInvitedUsers(db, req.user.id);
+    } else {
+      const challenge = new Uint8Array(32);
+      crypto.getRandomValues(challenge);
+      req.session.challenge = u8toa(challenge);
     }
     res.render("main", {
       user: req.user ?? {},
       usersToInvite,
       usersToPromote,
       invitedUsers,
+      // possibly null
+      challenge: req.session.challenge,
     });
   });
 

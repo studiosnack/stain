@@ -4,6 +4,12 @@ html
   head
     link(rel="stylesheet" href="/styles.css")
 
+    unless user.username
+      script.
+        window.ascii_challenge = "#{challenge}";
+      script(src="/login.js" defer)
+
+
   body.main
     p
       | hi #{user.name || ''} 
@@ -11,10 +17,13 @@ html
         a(href="/logout") logout?
 
     ul
-      if !user.username
+      unless user.username
         li
-          a(href="/login").
-            login
+          form
+            div
+              button(type="submit", id="login_button" value="login").
+                login?
+
       if user.username
         li
           | your photos 
@@ -44,10 +53,12 @@ html
                 input(type="submit" value="invite")
         if invitedUsers.length > 0
           li
-            ul
-              each invite in invitedUsers
-                li #{invite.username}: 
-                  span.inviteCode(style="cursor: alias;") #{invite.code}
+            details
+              summary invites (and codes)
+              ul
+                each invite in invitedUsers
+                  li #{invite.username}: 
+                    span.inviteCode(style="cursor: alias;") #{invite.code}
         if usersToPromote.length > 0
             li
               span| promote referenced user
