@@ -212,6 +212,23 @@ pre.meta {
   }
 }
 
+.note {
+  font-size: 14px;
+  line-height: 16px;
+}
+
+form textarea {
+  font-size: 16px;
+}
+.main {
+  width: 96vw;
+  margin: 10vh 2vw;
+}
+
+.main ul li {
+  line-height: 2em;
+}
+
 @media (min-width: 800px) {
   .container {
     flex-flow: row;
@@ -254,16 +271,8 @@ pre.meta {
   .backHomeLink {
     margin-top: 1em;
   }
-}
-
-form textarea {
-  font-size: 16px;
-}
-.main {
-  width: 600px;
-  margin: 10vh auto;
-}
-
-.main ul li {
-  line-height: 2em;
+  .main {
+    width: 600px;
+    margin: 10vh auto;
+  }
 }

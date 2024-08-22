@@ -2,6 +2,9 @@
 html
 
   head
+    meta(charset="utf-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1")
+
     link(rel="stylesheet" href="/styles.css")
 
     unless user.username
@@ -39,10 +42,12 @@ html
       if user.referenced_by == null
         li
           span| add user
+          //- p.note users can be @mentioned as well as invited to post photos, if you're into that
           form(action="/register/username" method="POST")
             input(type="text" placeholder="username" name="requested_handle")
+            br
             input(type="text" placeholder="friendly name" name="common_name")
-            input(type="submit")
+            input(type="submit" value="add user")
         if usersToInvite.length > 0
             li
               span| invite existing/referenced user
@@ -71,12 +76,11 @@ html
         span| change username
         form(action="/admin/username" method="POST")
           input(type="text" placeholder=`(currently ${user.username})` name="updated_un")
-          //- input(type="submit")
+
       li
         span| change name
         form(action="/admin/name" method="POST")
           input(type="text" placeholder=`(currently ${user.name})` name="updated_cn")
-          //- input(type="submit")
       
       script.
         document.querySelectorAll('.inviteCode').forEach(
