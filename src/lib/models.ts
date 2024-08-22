@@ -7,7 +7,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import exifReader from "exif-reader";
 
-const METADATA_VERSION = 4;
+const METADATA_VERSION = 5;
 
 export type User = {
   id: string;
@@ -338,7 +338,7 @@ export async function getPostForId(
 export async function getPostsByUsername(
   db: Database,
   username: string
-): Promise<Post | undefined> {
+): Promise<Post[]> {
   return db.all(
     `SELECT *
     FROM posts
@@ -430,13 +430,14 @@ export async function fileMetaFromPath(path: string) {
     resolutionUnit,
     hasProfile,
     hasAlpha,
+    orientation,
     exif,
   } = await img.metadata();
   return {
     format,
     size,
-    width,
-    height,
+    width: (orientation ?? 0) > 5 ? height : width,
+    height: (orientation ?? 0) > 5 ? width : height,
     space,
     channels,
     depth,
@@ -445,6 +446,7 @@ export async function fileMetaFromPath(path: string) {
     resolutionUnit,
     hasProfile,
     hasAlpha,
+    orientation,
     exif: exif ? exifReader(exif) : "none",
   };
 }
@@ -470,9 +472,12 @@ export async function insertOrFetchMetaFromMediaIdAtPath(
   );
   if (savedMeta) {
     console.log(`meta query finished in ${+new Date() - start}ms`);
+
+    const parsedMeta = JSON.parse(savedMeta.sharp_metadata);
+
     return {
       media_id: mediaId,
-      sharp_metadata: JSON.parse(savedMeta.sharp_metadata),
+      sharp_metadata: parsedMeta,
     };
   }
   console.log(`attempting to load metadata for image at path ${path}`);
