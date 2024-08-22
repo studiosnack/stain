@@ -730,8 +730,9 @@ bootstrapDb().then(({ db, instaStore }) => {
       const smallJpegStat = fsSync.statSync(resizedJpegPath, {
         throwIfNoEntry: false,
       });
-      if (!smallJpegStat?.isFile()) {
+      if (!smallJpegStat?.isFile() || req.query?.force === "1") {
         const resizedBuffer = await sharp(pathToMedia(media.uri))
+          .rotate()
           .resize({ height: 500, withoutEnlargement: true })
           .jpeg({ quality: 70, progressive: true })
           .toFile(resizedJpegPath);
@@ -753,16 +754,6 @@ bootstrapDb().then(({ db, instaStore }) => {
         req.params["media_id"],
         pathToMedia(media.uri)
       );
-
-      // const uri = media.uri.toLowerCase();
-      // // TODO(marcos): refactor this path content type stuff
-      // const contentType = uri.endsWith(".heic")
-      //   ? "image/heic"
-      //   : uri.endsWith(".heif") || uri.endsWith(".hif")
-      //   ? "image/heif"
-      //   : uri.endsWith(".jpg") || uri.endsWith(".jpeg")
-      //   ? "image/jpeg"
-      //   : undefined;
 
       // does the resized version exist?
       // check SMALL_RESIZE_PATH first
@@ -796,8 +787,9 @@ bootstrapDb().then(({ db, instaStore }) => {
       const resizedJpegStat = fsSync.statSync(resizedJpegPath, {
         throwIfNoEntry: false,
       });
-      if (!resizedJpegStat?.isFile()) {
+      if (!resizedJpegStat?.isFile() || req.query?.force === "1") {
         await sharp(pathToMedia(media.uri))
+          .rotate()
           .resize({ width: 1080, withoutEnlargement: true })
           .jpeg({ quality: 70, progressive: true })
           .toFile(resizedJpegPath);
@@ -859,8 +851,9 @@ bootstrapDb().then(({ db, instaStore }) => {
       const resizedMediaStat = fsSync.statSync(resizedMediaPath, {
         throwIfNoEntry: false,
       });
-      if (!resizedMediaStat?.isFile()) {
+      if (!resizedMediaStat?.isFile() || req.query?.force === "1") {
         await sharp(pathToMedia(media.uri))
+          .rotate()
           .resize({ width: 2000, withoutEnlargement: true })
           // @ts-ignore this is a correct format
           .toFormat(outputFormat)
@@ -926,8 +919,9 @@ bootstrapDb().then(({ db, instaStore }) => {
       const resizedMediaStat = fsSync.statSync(resizedMediaPath, {
         throwIfNoEntry: false,
       });
-      if (!resizedMediaStat?.isFile()) {
+      if (!resizedMediaStat?.isFile() || req.query?.force === "1") {
         await sharp(pathToMedia(media.uri))
+          .rotate()
           // @ts-ignore this is a correct format
           .toFormat(outputFormat)
           .toFile(resizedMediaPath);
@@ -991,6 +985,29 @@ bootstrapDb().then(({ db, instaStore }) => {
       res.render("all_posts", { allPosts, user });
     }
   });
+
+  function* chonk<T>(arr: T[], size = 3): Generator<T[], void, T[]> {
+    const slices = Math.ceil(arr.length / size);
+    for (let i = 0; i < slices; i += 1) {
+      yield arr.slice(i * size, (i + 1) * size);
+    }
+  }
+
+  // GET /:username
+  //
+  //   app.get("/u/:username", async (req, res) => {
+  //     if (req.params.username?.trim() !== "") {
+  //       const user = await getUserByName(db, req.params.username);
+  //       if (!user) {
+  //         res.status(404).send("hc svnt dracones").end();
+  //         return;
+  //       }
+  //
+  //       const allPosts = await getPostsByUsername(db, req.params.username);
+  //
+  //       res.render("all_posts", { allPosts: [...chonk(allPosts, 9)], user });
+  //     }
+  //   });
 
   // GET /
   //
