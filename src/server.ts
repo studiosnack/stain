@@ -11,6 +11,14 @@ const VALIDATED_DOMAINS = [
   `http://skane.local:${PORT}`,
   "https://snaps.studiosnack.net",
 ];
+// This domain is, if included, used to create
+// backlinks to this install (i.e. in the json feed)
+// otherwise, most links are generated clientside
+// using the window location
+const PUBLIC_DOMAIN = ""
+// How many items are returned in the default feed
+const FEED_PAGESIZE = 30
+
 const SESSION_SECRET = process.env.SESSION_SECRET ?? "water in my head";
 
 // express and middleware
@@ -18,6 +26,7 @@ import express from "express";
 import session from "express-session";
 import { InstaSessionStore } from "./lib/insta-session.js";
 import multer from "multer";
+import pug from 'pug';
 import nanoid from "nanoid";
 
 import * as fs from "node:fs/promises";
@@ -200,8 +209,14 @@ bootstrapDb().then(({ db, instaStore }) => {
   app.set("views", VIEWS_DIR);
   app.set("view engine", "pug");
 
+  // health check
+  app.get("health", (req, res)=>{
+    res.status(200).("ok")
+  })
+
   console.log(`${__dirname}/public`);
   app.use(
+    // Set content type headers for hif/heif/heic images
     express.static(`${__dirname}/public`, {
       setHeaders(res, path, stat) {
         if (path.endsWith(".heic")) {
@@ -970,21 +985,76 @@ bootstrapDb().then(({ db, instaStore }) => {
     }
   );
 
-  // GET /:username
-  //
-  app.get("/:username", async (req, res) => {
+  // after this middleware, req.params.username is guaranteed to refer 
+  // to a user in the app
+  const hasUserOr404Middleware = async (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
     if (req.params.username?.trim() !== "") {
       const user = await getUserByName(db, req.params.username);
       if (!user) {
         res.status(404).send("hc svnt dracones").end();
         return;
       }
-
-      const allPosts = await getPostsByUsername(db, req.params.username);
-
-      res.render("all_posts", { allPosts, user });
     }
+    next()
+  }
+
+  // GET /:username
+  //
+  app.get("/:username", hasUserOr404Middleware, async (req, res) => {
+    const user = await getUserByName(db, req.params.username);
+    const allPosts = await getPostsByUsername(db, req.params.username);
+    res.render("all_posts", { allPosts, user });
   });
+
+  
+  app.get("/:username/feed.json", hasUserOr404Middleware, async (req, res) => {
+    let {username, after} = req.params;
+    username = username.trim();
+    
+    const allPosts = await getPostsByUsername(db, username);
+    let items = [];
+    let requestHost = `${req.protocol}://${req.hostname}`;
+    let hostedUrl = `${requestHost}/${username}/feed.json`
+    
+    let title = `${req.params.username} ✕ fotos`
+    let version = "https://jsonfeed.org/version/1";
+    // TODO use the proper var for this domain
+    let home_page_url = `${requestHost}/${username}`
+    let feed_url = `${home_page_url}/feed.json`
+
+    
+    let startIndex = 0;
+    let afterKey = after?.trim() ?? "";
+    if (afterKey !== "") {
+      // if key isn't present, this defaults to starting at 0
+      startIndex = allPosts.findIndex(post => post.id === afterKey) + 1
+    }
+    let stopIndex = Math.min(startIndex + FEED_PAGESIZE, allPosts.length);
+    let next_url = undefined;
+    if (stopIndex <= allPosts.length) {
+      let stopKey = allPosts.at(stopIndex - 1)?.id as string
+      next_url = `${feed_url}?after=${stopKey}`
+    }
+    items = allPosts.slice(startIndex, stopIndex).map(post => ({
+      id: post.id,
+      url: `${requestHost}/p/${post.id}`
+    }));
+        
+    
+    res.set({"content-type": "application/feed+json"}).json({
+      version,
+      title,
+      home_page_url,
+      feed_url,
+      next_url,
+      authors: [{
+        name: username,
+        url: `${hostedUrl}/${username}`
+      }],
+      items: items
+    })
+
+  })
 
   function* chonk<T>(arr: T[], size = 3): Generator<T[], void, T[]> {
     const slices = Math.ceil(arr.length / size);
