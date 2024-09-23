@@ -67,7 +67,7 @@ import exifReader from "exif-reader";
 
 import {
   inviteDataFromCode,
-  existingCredentialsForUsername,
+  existingCredentialsForUserId,
   getUserByName,
   activateInvite,
   getPasskeyById,
@@ -210,14 +210,17 @@ bootstrapDb().then(({ db, instaStore }) => {
   app.set("view engine", "pug");
 
   // health check
-  app.get("health", (req, res)=>{
-    res.status(200).("ok")
-  })
+  app.get("health", (req, res) => {
+    res.status(200).send("ok");
+  });
 
-  console.log(`${__dirname}/public`);
+  // TODO: make this configurable
+  const static_public_dir = `${__dirname}/public`;
+
+  console.log(`static assets served from: ${static_public_dir}`);
   app.use(
     // Set content type headers for hif/heif/heic images
-    express.static(`${__dirname}/public`, {
+    express.static(`${static_public_dir}`, {
       setHeaders(res, path, stat) {
         if (path.endsWith(".heic")) {
           res.set("Content-Type", "image/heic");
@@ -334,18 +337,18 @@ bootstrapDb().then(({ db, instaStore }) => {
       return;
     }
 
-    const userid_req = await getUserByName(db, passkeyData.username);
+    const userid_req = await getUserById(db, passkeyData.user_id);
     if (!userid_req) {
       // not sure how we ended up here: have a valid passkey, but no user in the db
       // maybe this is an account that got renamed
-      console.log(`no userid found for ${passkeyData.username}`);
+      console.log(`no user found for id ${passkeyData.user_id}`);
       res.send("no userid?");
       return;
     }
     req.session.userId = userid_req.id;
 
     // not sure if this is worth logging, maybe short term
-    console.log(`auth succeeded for ${passkeyData.username}`);
+    console.log(`auth succeeded for ${passkeyData.user_id}`);
 
     res.send("ok").status(200).end();
   });
@@ -381,7 +384,7 @@ bootstrapDb().then(({ db, instaStore }) => {
     }
 
     // get existing passkeys here:
-    const existingCredentials = await existingCredentialsForUsername(
+    const existingCredentials = await existingCredentialsForUserId(
       db,
       inviteData.recipient_username
     );
@@ -985,9 +988,13 @@ bootstrapDb().then(({ db, instaStore }) => {
     }
   );
 
-  // after this middleware, req.params.username is guaranteed to refer 
+  // after this middleware, req.params.username is guaranteed to refer
   // to a user in the app
-  const hasUserOr404Middleware = async (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+  const hasUserOr404Middleware = async (
+    req: ExpressRequest,
+    res: ExpressResponse,
+    next: NextFunction
+  ) => {
     if (req.params.username?.trim() !== "") {
       const user = await getUserByName(db, req.params.username);
       if (!user) {
@@ -995,8 +1002,8 @@ bootstrapDb().then(({ db, instaStore }) => {
         return;
       }
     }
-    next()
-  }
+    next();
+  };
 
   // GET /:username
   //

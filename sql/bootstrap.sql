@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS posts (
 -- DROP TABLE IF EXISTS users;
 CREATE TABLE IF NOT EXISTS users (
   id text primary key,
-  username text unique not null,
+  username text unique null,
   name text default "",
   bio text default "",
   url text default "",
@@ -60,10 +60,10 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE passkeys (
   id BLOB PRIMARY KEY,
-  username STRING NOT NULL,
+  user_id STRING NOT NULL,
   public_key_spki BLOB,
   backed_up BOOLEAN,
-  FOREIGN KEY(username) REFERENCES users(username));
+  FOREIGN KEY(user_id) REFERENCES users(id));
 
 CREATE TABLE IF NOT EXISTS invites (
   id integer primary key, -- the id of the invite

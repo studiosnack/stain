@@ -288,7 +288,7 @@ export function activateInvite(
 
 type Passkey = {
   id: Buffer;
-  username: string;
+  user_id: string;
   public_key_spki: Buffer;
   backed_up: boolean;
 };
@@ -304,23 +304,23 @@ export async function getPasskeyById(
 
 export function insertNewPasskey(db: Database, passkey: Passkey) {
   return db.get(
-    `INSERT INTO passkeys (id, username, public_key_spki, backed_up) VALUES ($passkey_id, $username, $public_key_spki, $backed_up);`,
+    `INSERT INTO passkeys (id, user_id, public_key_spki, backed_up) VALUES ($passkey_id, $username, $public_key_spki, $backed_up);`,
     {
       $passkey_id: passkey.id,
-      $username: passkey.username,
+      $username: passkey.user_id,
       $public_key_spki: passkey.public_key_spki,
       $backed_up: passkey.backed_up,
     }
   );
 }
 
-export async function existingCredentialsForUsername(
+export async function existingCredentialsForUserId(
   db: Database,
-  username: string
+  userId: string
 ): Promise<PublicKeyCredentialDescriptor[]> {
   let passkeyIds = await db.all<{ id: Buffer }[]>(
-    "select id from passkeys where username = $username",
-    { $username: username }
+    "select id from passkeys where user_id = $userId",
+    { $userId: userId }
   );
 
   return passkeyIds.map(({ id }) => {
