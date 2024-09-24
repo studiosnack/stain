@@ -7,3 +7,6 @@ insta.db
 dist/*
 src/public/fonts/*.woff
 src/public/fonts/*.woff2
+media/*
+.nova
+.env.dev
