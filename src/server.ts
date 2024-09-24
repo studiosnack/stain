@@ -705,14 +705,23 @@ bootstrapDb().then(({ db, instaStore }) => {
     const media = await getMediaById(db, req.params.media_id);
 
     if (media) {
+      const mediapath = pathToMedia(media.uri);
+      const mediaExistsAtPath = fsSync.statSync(mediapath, {
+        throwIfNoEntry: false,
+      });
+
+      if (!mediaExistsAtPath) {
+        return res.status(404).send();
+      }
+
       await insertOrFetchMetaFromMediaIdAtPath(
         db,
         req.params["media_id"],
-        pathToMedia(media.uri)
+        mediapath
       );
 
       if (media.uri.endsWith("mp4")) {
-        res.sendFile(pathToMedia(media.uri));
+        res.sendFile(mediapath);
         return;
       }
 
@@ -749,7 +758,7 @@ bootstrapDb().then(({ db, instaStore }) => {
         throwIfNoEntry: false,
       });
       if (!smallJpegStat?.isFile() || req.query?.force === "1") {
-        const resizedBuffer = await sharp(pathToMedia(media.uri))
+        const resizedBuffer = await sharp(mediapath)
           .rotate()
           .resize({ height: 500, withoutEnlargement: true })
           .jpeg({ quality: 70, progressive: true })

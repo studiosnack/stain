@@ -2,19 +2,21 @@
 
 a minimal self-hosted photo backup/sharing app for antisocial people.
 
-- by default all images have exif data stripped
+- by default all public images have exif data stripped
 - all images except for homepage are served in original aspect ratio
 - images are served/reformatted in modern formats with high quality (i.e. you upload a heic and your browser will get that or maybe a webp).
 - only logged in users can access original files
 - opengraph support for sharing individual posts over text
 - by default, copying the url shares what you see (except user homepage, for now)
 - share first, format later
+- similarly: almost all actions can be deferred
 
 the idea here is to have something that allows for the following features:
 
 - individual or multiple photos can be shared as a single post, with per-photo captions, tags, and user mentions, maybe location data in some nebulous way.
 
 - users... exist, auth is mobile-oriented, supports passkeys only.
+-
 
 ## users
 
