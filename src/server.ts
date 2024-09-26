@@ -1,25 +1,20 @@
-const PORT = 3000;
-// whether or not to validate domains (disable if you're having domain issues)
-const VALIDATE_DOMAIN = false;
-// these specific domains are verified when logging in
-const VALIDATED_DOMAINS = [
-  // this is just the dev domain
-  `http://localhost:${PORT}`,
-  // this is whatever domain you want your app hosted under
-  "https://foto.generic.cx",
-  // mdns here
-  `http://skane.local:${PORT}`,
-  "https://snaps.studiosnack.net",
-];
-// This domain is, if included, used to create
-// backlinks to this install (i.e. in the json feed)
-// otherwise, most links are generated clientside
-// using the window location
-const PUBLIC_DOMAIN = "";
-// How many items are returned in the default feed
-const FEED_PAGESIZE = 30;
-
-const SESSION_SECRET = process.env.SESSION_SECRET ?? "water in my head";
+import {
+  PORT,
+  VALIDATE_DOMAIN,
+  VALIDATED_DOMAINS,
+  PUBLIC_DOMAIN,
+  FEED_PAGESIZE,
+  SESSION_SECRET,
+  VIEWS_DIR,
+  DB_PATH,
+  MEDIA_PATH,
+  ROOT_MEDIA_PATH,
+  UPLOAD_PATH,
+  SMALL_RESIZE_PATH,
+  MEDIUM_RESIZE_PATH,
+  LARGE_RESIZE_PATH,
+  EXTRA_LARGE_RESIZE_PATH,
+} from "./consts";
 
 // express and middleware
 import express from "express";
@@ -33,21 +28,7 @@ import * as fs from "node:fs/promises";
 import * as fsSync from "node:fs";
 import path from "node:path";
 
-// CONSTANTS
-const VIEWS_DIR = path.join(__dirname, `/../src/views`);
-const DB_PATH = "insta.db";
-const MEDIA_PATH = "../media";
-
-// this is weird, i admit, but it's a crude way to deal with relative media paths
-const ROOT_MEDIA_PATH = path.join(__dirname, MEDIA_PATH);
-
-// in order to keep the fs relatively reasonable, leave originals in the o dir
-// but keep copies of smaller/resized versions in separate folders
-const UPLOAD_PATH = path.join(ROOT_MEDIA_PATH, "o", "uploaded");
-const SMALL_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "s");
-const MEDIUM_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "m");
-const LARGE_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "l");
-const EXTRA_LARGE_RESIZE_PATH = path.join(ROOT_MEDIA_PATH, "xl");
+import { app as mediaApp } from "./api/media";
 
 const uploadStat = fsSync.statSync(UPLOAD_PATH, { throwIfNoEntry: false });
 if (!uploadStat?.isDirectory()) {
@@ -92,6 +73,7 @@ import {
   createInviteForUser,
   type User,
   type InvitedUser,
+  type Media,
 } from "./lib/models.js";
 
 import {
@@ -102,6 +84,8 @@ import {
   parseKey,
   simpleVerifyFromKey,
 } from "./lib/cred.js";
+
+import { isValidOrigin, pathToMedia } from "./lib/utils";
 
 async function bootstrapDb() {
   let db: PDatabase | undefined;
@@ -114,13 +98,6 @@ async function bootstrapDb() {
   instaStore = new InstaSessionStore(db);
   return { db, instaStore };
 }
-
-function isValidOrigin(origin: string): Boolean {
-  const testingOrigins = [`http://localhost:${PORT}`];
-  return testingOrigins.includes(origin);
-}
-
-const pathToMedia = (uri: string) => path.join(__dirname, MEDIA_PATH, uri);
 
 declare module "express-session" {
   interface SessionData {
@@ -138,6 +115,7 @@ import type {
 declare module "express-serve-static-core" {
   interface Request {
     user?: User;
+    db?: PDatabase<Database, Statement>;
   }
 }
 
@@ -214,6 +192,11 @@ bootstrapDb().then(({ db, instaStore }) => {
     res.status(200).send("ok");
   });
 
+  app.use((req, res, next) => {
+    req.db = db;
+    next();
+  });
+
   // TODO: make this configurable
   const static_public_dir = `${__dirname}/public`;
 
@@ -231,6 +214,10 @@ bootstrapDb().then(({ db, instaStore }) => {
       },
     })
   );
+
+  // mediaApp serves media, both cached and dynamically
+  // resized for various resolutions
+  app.use("/m", mediaApp);
 
   // POST /login
   // requires POST with formadata
@@ -649,315 +636,6 @@ bootstrapDb().then(({ db, instaStore }) => {
     } else {
       res.status(404);
       res.send("oh no");
-    }
-  });
-
-  // GET /m/o/:media_id
-  // this gets the 'original' media. the idea is we have another
-  // set of endpoints like /m/s/:media_id that let you have smaller
-  // resized media etc
-  app.get("/m/o/:media_id", withUserMiddleware(db), async (req, res) => {
-    const media = await getMediaById(db, req.params.media_id);
-
-    if (media) {
-      await insertOrFetchMetaFromMediaIdAtPath(
-        db,
-        req.params["media_id"],
-        pathToMedia(media.uri)
-      );
-
-      // only logged in users get original media
-      if (req.user?.id == null) {
-        res.redirect(`/m/xl/${req.params.media_id}`);
-        return;
-      }
-
-      const uri = media.uri.toLowerCase();
-
-      if (uri.endsWith("mp4")) {
-        res.sendFile(pathToMedia(media.uri));
-        return;
-      }
-
-      const contentType = uri.endsWith(".heic")
-        ? "image/heic"
-        : uri.endsWith(".heif") || uri.endsWith(".hif")
-        ? "image/heif"
-        : uri.endsWith(".jpg") || uri.endsWith(".jpeg")
-        ? "image/jpeg"
-        : undefined;
-
-      res.sendFile(pathToMedia(media.uri), {
-        headers: contentType
-          ? {
-              "Content-Type": contentType,
-              "Content-Disposition": "attachment",
-            }
-          : undefined,
-      });
-      return;
-    }
-    res.status(404);
-    res.send("wuh woh");
-  });
-
-  app.get("/m/s/:media_id", async (req, res) => {
-    const media = await getMediaById(db, req.params.media_id);
-
-    if (media) {
-      const mediapath = pathToMedia(media.uri);
-      const mediaExistsAtPath = fsSync.statSync(mediapath, {
-        throwIfNoEntry: false,
-      });
-
-      if (!mediaExistsAtPath) {
-        return res.status(404).send();
-      }
-
-      await insertOrFetchMetaFromMediaIdAtPath(
-        db,
-        req.params["media_id"],
-        mediapath
-      );
-
-      if (media.uri.endsWith("mp4")) {
-        res.sendFile(mediapath);
-        return;
-      }
-
-      // does the resized version exist?
-      // check SMALL_RESIZE_PATH first
-      const pathForResizedMedia = path.join(SMALL_RESIZE_PATH, media.user_id);
-      const media_date = new Date(media.created_on * 1000);
-
-      const resizedImageDir = path.join(
-        pathForResizedMedia,
-
-        `${media_date.getFullYear()}`,
-        `${media_date.getMonth() + 1}`
-      );
-      // does a smol dir exist for image??
-      const resizeDirStat = fsSync.statSync(resizedImageDir, {
-        throwIfNoEntry: false,
-      });
-      if (!resizeDirStat?.isDirectory()) {
-        // make dir
-        console.log(`making directory ${resizedImageDir}`);
-        fsSync.mkdirSync(resizedImageDir, { recursive: true });
-      }
-
-      const { name: imageNameNoExt } = path.parse(media.uri);
-      const resizedJpegPath = path.format({
-        dir: resizedImageDir,
-        name: imageNameNoExt,
-        ext: "jpg",
-      });
-      // this is the extensionless path
-
-      const smallJpegStat = fsSync.statSync(resizedJpegPath, {
-        throwIfNoEntry: false,
-      });
-      if (!smallJpegStat?.isFile() || req.query?.force === "1") {
-        const resizedBuffer = await sharp(mediapath)
-          .rotate()
-          .resize({ height: 500, withoutEnlargement: true })
-          .jpeg({ quality: 70, progressive: true })
-          .toFile(resizedJpegPath);
-      }
-
-      res.sendFile(resizedJpegPath, {
-        headers: { "Content-Type": "image/jpeg" },
-      });
-      return;
-    }
-  });
-
-  app.get("/m/m/:media_id", async (req, res) => {
-    const media = await getMediaById(db, req.params.media_id);
-
-    if (media) {
-      await insertOrFetchMetaFromMediaIdAtPath(
-        db,
-        req.params["media_id"],
-        pathToMedia(media.uri)
-      );
-
-      // does the resized version exist?
-      // check SMALL_RESIZE_PATH first
-      const pathForResizedMedia = path.join(MEDIUM_RESIZE_PATH, media.user_id);
-      const media_date = new Date(media.created_on * 1000);
-
-      const resizedImageDir = path.join(
-        pathForResizedMedia,
-
-        `${media_date.getFullYear()}`,
-        `${media_date.getMonth() + 1}`
-      );
-      // does a smol dir exist for image??
-      const resizeDirStat = fsSync.statSync(resizedImageDir, {
-        throwIfNoEntry: false,
-      });
-      if (!resizeDirStat?.isDirectory()) {
-        // make dir
-        console.log(`making directory ${resizedImageDir}`);
-        fsSync.mkdirSync(resizedImageDir, { recursive: true });
-      }
-
-      const { name: imageNameNoExt } = path.parse(media.uri);
-      const resizedJpegPath = path.format({
-        dir: resizedImageDir,
-        name: imageNameNoExt,
-        ext: "jpg",
-      });
-      // this is the extensionless path
-
-      const resizedJpegStat = fsSync.statSync(resizedJpegPath, {
-        throwIfNoEntry: false,
-      });
-      if (!resizedJpegStat?.isFile() || req.query?.force === "1") {
-        await sharp(pathToMedia(media.uri))
-          .rotate()
-          .resize({ width: 1080, withoutEnlargement: true })
-          .jpeg({ quality: 70, progressive: true })
-          .toFile(resizedJpegPath);
-      }
-
-      res.sendFile(resizedJpegPath, {
-        headers: { "Content-Type": "image/jpeg" },
-      });
-      return;
-    }
-  });
-
-  app.get("/m/l/:media_id", async (req, res) => {
-    const media = await getMediaById(db, req.params.media_id);
-
-    if (media) {
-      await insertOrFetchMetaFromMediaIdAtPath(
-        db,
-        req.params["media_id"],
-        pathToMedia(media.uri)
-      );
-
-      // does the resized version exist?
-      // check SMALL_RESIZE_PATH first
-      const pathForResizedMedia = path.join(LARGE_RESIZE_PATH, media.user_id);
-      const media_date = new Date(media.created_on * 1000);
-
-      const resizedImageDir = path.join(
-        pathForResizedMedia,
-
-        `${media_date.getFullYear()}`,
-        `${media_date.getMonth() + 1}`
-      );
-      // does a smol dir exist for image??
-      const resizeDirStat = fsSync.statSync(resizedImageDir, {
-        throwIfNoEntry: false,
-      });
-      if (!resizeDirStat?.isDirectory()) {
-        // make dir
-        console.log(`making directory ${resizedImageDir}`);
-        fsSync.mkdirSync(resizedImageDir, { recursive: true });
-      }
-
-      const { name: imageNameNoExt } = path.parse(media.uri);
-
-      const outputFormat = req.accepts(["heic", "webp", "jpg"]);
-      console.log(`request for output format: ${outputFormat}`);
-      if (!outputFormat) {
-        return res.status(406).end();
-      }
-
-      const resizedMediaPath = path.format({
-        dir: resizedImageDir,
-        name: imageNameNoExt,
-        ext: outputFormat,
-      });
-      // this is the extensionless path
-
-      const resizedMediaStat = fsSync.statSync(resizedMediaPath, {
-        throwIfNoEntry: false,
-      });
-      if (!resizedMediaStat?.isFile() || req.query?.force === "1") {
-        await sharp(pathToMedia(media.uri))
-          .rotate()
-          .resize({ width: 2000, withoutEnlargement: true })
-          // @ts-ignore this is a correct format
-          .toFormat(outputFormat)
-          .toFile(resizedMediaPath);
-      }
-
-      res.sendFile(resizedMediaPath, {
-        headers: { "Content-Type": `image/${outputFormat}` },
-      });
-      return;
-    }
-  });
-
-  app.get("/m/xl/:media_id", async (req, res) => {
-    const media = await getMediaById(db, req.params.media_id);
-
-    if (media) {
-      await insertOrFetchMetaFromMediaIdAtPath(
-        db,
-        req.params["media_id"],
-        pathToMedia(media.uri)
-      );
-
-      // does the resized version exist?
-      // check SMALL_RESIZE_PATH first
-      const pathForResizedMedia = path.join(
-        EXTRA_LARGE_RESIZE_PATH,
-        media.user_id
-      );
-      const media_date = new Date(media.created_on * 1000);
-
-      const resizedImageDir = path.join(
-        pathForResizedMedia,
-
-        `${media_date.getFullYear()}`,
-        `${media_date.getMonth() + 1}`
-      );
-      // does a smol dir exist for image??
-      const resizeDirStat = fsSync.statSync(resizedImageDir, {
-        throwIfNoEntry: false,
-      });
-      if (!resizeDirStat?.isDirectory()) {
-        // make dir
-        console.log(`making directory ${resizedImageDir}`);
-        fsSync.mkdirSync(resizedImageDir, { recursive: true });
-      }
-
-      const { name: imageNameNoExt } = path.parse(media.uri);
-
-      const outputFormat = req.accepts(["heic", "webp", "jpg"]);
-      console.log(`request for output format: ${outputFormat}`);
-      if (!outputFormat) {
-        return res.status(406).end();
-      }
-
-      const resizedMediaPath = path.format({
-        dir: resizedImageDir,
-        name: imageNameNoExt,
-        ext: outputFormat,
-      });
-      // this is the extensionless path
-
-      const resizedMediaStat = fsSync.statSync(resizedMediaPath, {
-        throwIfNoEntry: false,
-      });
-      if (!resizedMediaStat?.isFile() || req.query?.force === "1") {
-        await sharp(pathToMedia(media.uri))
-          .rotate()
-          // @ts-ignore this is a correct format
-          .toFormat(outputFormat)
-          .toFile(resizedMediaPath);
-      }
-
-      res.sendFile(resizedMediaPath, {
-        headers: { "Content-Type": `image/${outputFormat}` },
-      });
-      return;
     }
   });
 

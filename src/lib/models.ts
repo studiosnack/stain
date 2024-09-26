@@ -192,7 +192,7 @@ export async function createInviteForUser(
 //   mentions: string;
 // };
 
-type Media = {
+export type Media = {
   id: string;
   uri: string; // a relative path
   user_id: string;

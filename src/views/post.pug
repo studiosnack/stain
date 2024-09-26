@@ -51,7 +51,7 @@ body
         a.link(href="javascript:" title="copy a link to this photo")|  🔗
         a.share(href="javascript:" title="share this photo")| 📤
         if (userOwnsMedia) 
-          a.dl_link(href=`javascript:` title="download this photo")|  💾
+          a.dl_link(href=`${origin}/m/o/${media[0].media_id}` title="download this photo")|  💾
         
 
   if (userOwnsMedia) 
