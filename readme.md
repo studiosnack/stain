@@ -16,7 +16,23 @@ the idea here is to have something that allows for the following features:
 - individual or multiple photos can be shared as a single post, with per-photo captions, tags, and user mentions, maybe location data in some nebulous way.
 
 - users... exist, auth is mobile-oriented, supports passkeys only.
--
+
+### privacy
+
+- it would be nice to support complex permissions, but we do need to support at the very least:
+  - only me
+  - only logged in
+  - public
+- this setting is
+  - a user-level setting (defaults)
+  - a per-post setting (overrides)
+- changing the default setting will
+  - affect permissions of photos with no override permissions set
+- setting a user's _page_ to be be private will 404 it
+- setting a photo to be private will also 404 it, but will retain the media id?
+- setting an individual photo be private
+- idea: invalidating media ids based on privacy levels
+  - ideal way to do this is have a stable media id and a public id which can be either per-invite or per-guest? we can generate an arbitrary number of these and
 
 ## users
 

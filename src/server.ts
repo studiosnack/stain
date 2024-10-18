@@ -29,6 +29,7 @@ import * as fsSync from "node:fs";
 import path from "node:path";
 
 import { app as mediaApp } from "./api/media";
+import { app as adminApp } from "./api/admin";
 
 const uploadStat = fsSync.statSync(UPLOAD_PATH, { throwIfNoEntry: false });
 if (!uploadStat?.isDirectory()) {
@@ -219,6 +220,10 @@ bootstrapDb().then(({ db, instaStore }) => {
   // resized for various resolutions
   app.use("/m", mediaApp);
 
+  // These aren't so much admin routes but they handle
+  // invites, username renames, etc.
+  app.use("/admin", adminApp);
+
   // POST /login
   // requires POST with formadata
   // - rawId
@@ -389,91 +394,6 @@ bootstrapDb().then(({ db, instaStore }) => {
       existing_credentials,
     });
   });
-
-  app.post("/admin/invite", withUserMiddleware(db), async (req, res) => {
-    if (req.user?.id == null) {
-      return res.status(403).send("hc svnt dracones");
-    }
-
-    const userToInvite = await getUserById(db, req.body.userId);
-    if (!userToInvite) {
-      return res.status(400).send("qvo vadis?");
-    }
-    console.log(
-      `${req.user.username} (${req.user.id}) inviting referenced user ${userToInvite?.username} (${userToInvite?.id})`
-    );
-    const invite = await createInviteForUser(db, userToInvite.id, req.user.id);
-    res.redirect("/");
-    return;
-  });
-
-  app.post("/admin/enable", withUserMiddleware(db), async (req, res) => {
-    if (req.user?.id == null) {
-      return res.status(403).send("hc svnt dracones");
-    }
-    console.log(req.body);
-    const userToPromote = await getUserById(db, req.body.userId);
-    if (!userToPromote) {
-      return res.status(400).send("qvo vadis?");
-    }
-    console.log(
-      `${req.user.username} (${req.user.id}) attempting to promote referenced user ${userToPromote?.username} (${userToPromote?.id})`
-    );
-    try {
-      await db.run(`UPDATE users set enabled = 1 where id = :enabledId`, {
-        ":enabledId": userToPromote?.id,
-      });
-    } catch (err) {
-      res.status(500).send("ista qvidem vis est!");
-    }
-    res.redirect("/");
-  });
-
-  app.post(
-    "/admin/username",
-    withUserMiddleware(db),
-
-    async (req, res) => {
-      if (req.user?.id != null) {
-        const oldUsername = req.user.username;
-        const newUsername = req.body.updated_un;
-        const newUser = await updateUsername(db, req.user.id, newUsername);
-        console.log(`updated username ${oldUsername} to ${newUsername}`);
-
-        res.redirect("/");
-        return;
-      } else {
-        res.status(403).send("hc svnt dracones").end();
-        return;
-      }
-
-      res.redirect("/");
-    }
-  );
-
-  app.post(
-    "/admin/name",
-    withUserMiddleware(db),
-
-    async (req, res) => {
-      if (req.user?.id != null) {
-        const oldUsername = req.user.username;
-        const newUsername = req.body.updated_cn;
-        const newUser = await updateName(db, req.user.id, newUsername);
-        console.log(
-          `updated user's name from ${oldUsername} to ${newUsername}`
-        );
-
-        res.redirect("/");
-        return;
-      } else {
-        res.status(403).send("hc svnt dracones").end();
-        return;
-      }
-
-      res.redirect("/");
-    }
-  );
 
   app.post(
     "/register/username",
@@ -801,6 +721,7 @@ bootstrapDb().then(({ db, instaStore }) => {
 });
 
 function withUserMiddleware(db: PDatabase) {
+  // populates req.user if user is logged in
   return async function (
     req: ExpressRequest,
     res: ExpressResponse,
@@ -815,39 +736,3 @@ function withUserMiddleware(db: PDatabase) {
     next();
   };
 }
-
-/*async function fileMetaFromPath(path: string) {
-  const d = await fs.readFile(path);
-  const img = await sharp(d);
-  const {
-    format,
-    size,
-    width,
-    height,
-    space,
-    channels,
-    depth,
-    isProgressive,
-    compression,
-    resolutionUnit,
-    hasProfile,
-    hasAlpha,
-    exif,
-  } = await img.metadata();
-  return {
-    format,
-    size,
-    width,
-    height,
-    space,
-    channels,
-    depth,
-    isProgressive,
-    compression,
-    resolutionUnit,
-    hasProfile,
-    hasAlpha,
-    exif: exif ? exifReader(exif) : undefined,
-  };
-}
-*/
