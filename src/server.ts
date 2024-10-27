@@ -39,10 +39,6 @@ if (!uploadStat?.isDirectory()) {
   console.log(`- upload directory found at path ${UPLOAD_PATH}`);
 }
 
-// for db
-// import { Database, Statement } from "sqlite3";
-// import { open, Database as PDatabase } from "sqlite";
-
 import Database, { type Database as BSDatabase } from "better-sqlite3";
 
 // for image metadata
@@ -609,12 +605,23 @@ const hasUserOr404Middleware = async (
   next();
 };
 
+const { performance } = require("node:perf_hooks");
 // GET /:username
 //
 app.get("/:username", hasUserOr404Middleware, async (req, res) => {
-  const user = await getUserByName(db, req.params.username);
-  const allPosts = await getPostsByUsername(db, req.params.username);
-  res.render("all_posts", { allPosts, user });
+  const start = performance.now();
+  const user = getUserByName(db, req.params.username);
+  const allPosts = getPostsByUsername(db, req.params.username);
+  const beforeRender = performance.now();
+  const duration = beforeRender - start;
+  console.log(`user page db requests completed in ${duration} ms`);
+
+  return res.render("all_posts", { allPosts: allPosts, user }, (err, html) => {
+    const postRender = performance.now();
+
+    console.log(`rendered page in ${postRender - beforeRender} ms`);
+    res.send(html);
+  });
 });
 
 app.get("/:username/feed.json", hasUserOr404Middleware, async (req, res) => {

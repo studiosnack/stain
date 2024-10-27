@@ -348,7 +348,15 @@ export function getPostForId(db: Database, postId: string): Post | undefined {
 export function getPostsByUsername(db: Database, username: string): Post[] {
   return db
     .prepare<{ username: string }, Post>(
-      `SELECT *
+      `SELECT 
+        id, 
+        media, 
+        title, 
+        caption, 
+        user_id, 
+        created_on, 
+        json_array_length(media) as mediaCount,
+        media ->> 0 as firstMediaItem
     FROM posts
     WHERE posts.user_id = (
       SELECT id FROM users WHERE users.username = $username
@@ -359,10 +367,11 @@ export function getPostsByUsername(db: Database, username: string): Post[] {
 }
 type Post = {
   id: string;
-  media: Media[];
+  media: string; // json array
   title?: string;
+  caption?: string;
   user_id: string;
-  creation_timestamp?: number;
+  created_on?: number;
 };
 
 type PostMedia = {
