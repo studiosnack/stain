@@ -11,15 +11,15 @@ body
 
   ul(class="grid")
     each post, idx in allPosts
-      li(id=post.id class=`gridPost ${JSON.parse(post.media).length > 1 ? 'multi' : ''}`)
+      li(id=post.id class=`gridPost ${post.mediaCount > 1 ? 'multi' : ''}`)
         a(href=`/p/${post.id}`)
           img(
-          src=`/m/s/${JSON.parse(post.media)[0]}` 
+          src=`/m/s/${post.firstMediaItem}` 
           loading="lazy" 
           class="gridImg"
           width="250" 
           height="250"
-          srcset=`/m/s/${JSON.parse(post.media)[0]} 500w, /m/m/${JSON.parse(post.media)[0]} 1080w`
+          srcset=`/m/s/${post.firstMediaItem} 500w, /m/m/${post.firstMediaItem} 1080w`
           sizes=`(min-width: 800px) 250px, 360px`
         )
         div.postCaptions
@@ -30,6 +30,6 @@ body
             p.title #{post.title}
           if post.caption
             p.caption #{post.caption}  
-          - var photocount = Number(JSON.parse(post.media).length)
+          - var photocount = Number(post.mediaCount)
           if photocount > 1
             span #{photocount} 🖼️
