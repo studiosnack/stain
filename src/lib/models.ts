@@ -1,4 +1,5 @@
-import { Database } from "sqlite";
+// import { Database } from "sqlite";
+import { type Database } from "better-sqlite3";
 
 import nanoid from "nanoid";
 // for image metadata
@@ -20,62 +21,63 @@ export type User = {
   referenced_by: string | null;
 };
 
-export async function getInvitableUsers(
-  db: Database,
-  currentUserId: string
-): Promise<User[]> {
-  return await db.all(
-    `select * from users where enabled is true and id != :currentUserId`,
-    { ":currentUserId": currentUserId }
-  );
+export function getInvitableUsers(db: Database, currentUserId: string): User[] {
+  return db
+    .prepare<{ currentUserId: string }, User>(
+      `select * from users where enabled is true and id != :currentUserId`
+    )
+    .all({ currentUserId: currentUserId });
 }
 
-export async function getReferencedUsers(
+export function getReferencedUsers(
   db: Database,
   currentUserId: string
-): Promise<User[]> {
-  return await db.all(
-    `select * from users where enabled is false and referenced_by = :currentUserId`,
-    { ":currentUserId": currentUserId }
-  );
+): User[] {
+  return db
+    .prepare<{ currentUserId: string }, User>(
+      `select * from users where enabled is false and referenced_by = :currentUserId`
+    )
+    .all({ currentUserId });
 }
 
-export async function getUserByName(
+export function getUserByName(
   db: Database,
   username: string
-): Promise<User | undefined> {
-  return db.get(`SELECT * from users where username = $username`, {
-    $username: username,
-  });
+): User | undefined {
+  return db
+    .prepare<{ username: string }, User>(
+      `SELECT * from users where username = $username`
+    )
+    .get({
+      username,
+    });
 }
 
-export async function getUserById(
-  db: Database,
-  userId: string
-): Promise<User | undefined> {
-  return db.get(`SELECT * from users where id = $userId`, {
-    $userId: userId,
-  });
+export function getUserById(db: Database, userId: string): User | undefined {
+  return db
+    .prepare<{ userId: string }, User>(`SELECT * from users where id = $userId`)
+    .get({
+      userId,
+    });
 }
 
-export async function insertNewUser(
+export function insertNewUser(
   db: Database,
   username: string,
   name: string = "",
   invitingUserId: string | null
-): Promise<User | undefined> {
+): User | undefined {
   const userId = nanoid.nanoid(5);
-  await db.run(
-    "INSERT INTO users (id, username, name, enabled, referenced_by) values (:id, :username, :name, :enabled, :referenced_by)",
-    {
-      ":id": userId,
-      ":username": username,
-      ":name": name,
-      ":enabled": true,
-      ":referenced_by": invitingUserId,
-    }
-  );
-  return await getUserById(db, userId);
+  db.prepare(
+    "INSERT INTO users (id, username, name, enabled, referenced_by) values (:id, :username, :name, :enabled, :referenced_by)"
+  ).run({
+    id: userId,
+    username: username,
+    name: name,
+    enabled: true,
+    referenced_by: invitingUserId,
+  });
+  return getUserById(db, userId);
 }
 
 export type InvitedUser = {
@@ -86,12 +88,13 @@ export type InvitedUser = {
   activated_on: number;
 };
 
-export async function selectInvitedUsers(
+export function selectInvitedUsers(
   db: Database,
   invitingUser: string
-): Promise<InvitedUser[]> {
-  return db.all(
-    `SELECT 
+): InvitedUser[] {
+  return db
+    .prepare<{ invitingUser: string }, InvitedUser>(
+      `SELECT 
       users.id as id, 
       users.username as username, 
       users.name as name,
@@ -100,24 +103,23 @@ export async function selectInvitedUsers(
     FROM invites 
     LEFT JOIN users 
     ON users.id = invites.recipient_id
-    WHERE sender_id = :invitingUser`,
-    { ":invitingUser": invitingUser }
-  );
+    WHERE sender_id = :invitingUser`
+    )
+    .all({ invitingUser });
 }
 
-export async function updateUsername(
+export function updateUsername(
   db: Database,
   userId: string,
   newUsername: string
-): Promise<User | undefined> {
+): User | undefined {
   try {
-    await db.run(
-      "UPDATE users set username = :newUsername where id = :userId",
-      {
-        ":newUsername": newUsername,
-        ":userId": userId,
-      }
-    );
+    db.prepare(
+      "UPDATE users set username = :newUsername where id = :userId"
+    ).run({
+      newUsername,
+      userId,
+    });
     return getUserById(db, userId);
   } catch (err) {
     console.log("ooops");
@@ -125,15 +127,15 @@ export async function updateUsername(
   }
 }
 
-export async function updateName(
+export function updateName(
   db: Database,
   userId: string,
   newName: string
-): Promise<User | undefined> {
+): User | undefined {
   try {
-    await db.run("UPDATE users set name = :newName where id = :userId", {
-      ":newName": newName,
-      ":userId": userId,
+    db.prepare("UPDATE users set name = :newName where id = :userId").run({
+      newName,
+      userId,
     });
     return getUserById(db, userId);
   } catch (err) {
@@ -158,13 +160,13 @@ const nanoInviteId = nanoid.customAlphabet(
   5
 );
 
-export async function createInviteForUser(
+export function createInviteForUser(
   db: Database,
   recipientId: string,
   senderId: string
-): Promise<Invite | undefined> {
+): Invite | undefined {
   const code = `${nanoInviteId()}-${nanoInviteId()}`;
-  await db.run(
+  db.prepare(
     `
     INSERT INTO invites (
       recipient_id, 
@@ -174,10 +176,13 @@ export async function createInviteForUser(
       :recipient_id, 
       :sender_id, 
       :code
-    )`,
-    { ":recipient_id": recipientId, ":sender_id": senderId, ":code": code }
-  );
-  return db.get(`select * from invites where code = :code`, { ":code": code });
+    )`
+  ).run({ recipient_id: recipientId, ":sender_id": senderId, code });
+  return db
+    .prepare<{ code: string }, Invite>(
+      `select * from invites where code = :code`
+    )
+    .get({ code });
 }
 
 // type RawMediaType = {
@@ -205,14 +210,15 @@ export type Media = {
   mentions: string[];
 };
 
-export async function getMediaById(
-  db: Database,
-  id: string
-): Promise<Media | undefined> {
+export function getMediaById(db: Database, id: string): Media | undefined {
   // TODO(marcos): parse created_on/deleted_on as dates * 1000
-  return db.get("select * from media where id = :media_id", {
-    ":media_id": id,
-  });
+  return db
+    .prepare<{ media_id: string }, Media>(
+      "select * from media where id = :media_id"
+    )
+    .get({
+      media_id: id,
+    });
 }
 
 // export const parseMedia = (media: RawMediaType): Media => {
@@ -250,12 +256,13 @@ type InviteData = {
   expires_on?: string;
 };
 
-export async function inviteDataFromCode(
+export function inviteDataFromCode(
   db: Database,
   code: string
-): Promise<InviteData | undefined> {
-  return db.get<InviteData>(
-    `
+): InviteData | undefined {
+  return db
+    .prepare<{ code: string }, InviteData>(
+      `
     SELECT
       invites.code AS code,
       recipients.username AS recipient_username,
@@ -270,9 +277,9 @@ export async function inviteDataFromCode(
       LEFT JOIN users recipients ON recipients.id = invites.recipient_id
       LEFT JOIN users senders ON senders.id = invites.sender_id
       WHERE code = :code
-    `,
-    { ":code": code }
-  );
+    `
+    )
+    .get({ code: code });
 }
 
 export function activateInvite(
@@ -280,10 +287,11 @@ export function activateInvite(
   code: string,
   when: string = "now"
 ) {
-  return db.get(
-    `UPDATE invites SET activated_on=strftime('%s', $when) where code = $code;`,
-    { $code: code, $when: when }
-  );
+  return db
+    .prepare<{ code: string; when: string }>(
+      `UPDATE invites SET activated_on=strftime('%s', $when) where code = $code;`
+    )
+    .run({ code: code, when: when });
 }
 
 type Passkey = {
@@ -293,61 +301,61 @@ type Passkey = {
   backed_up: boolean;
 };
 
-export async function getPasskeyById(
-  db: Database,
-  id: Buffer
-): Promise<Passkey | undefined> {
-  return db.get<Passkey>(`SELECT * FROM passkeys where id = $id`, {
-    $id: id,
-  });
+export function getPasskeyById(db: Database, id: Buffer): Passkey | undefined {
+  return db
+    .prepare<{ id: Buffer }, Passkey>(`SELECT * FROM passkeys where id = $id`)
+    .get({
+      id: id,
+    });
 }
 
 export function insertNewPasskey(db: Database, passkey: Passkey) {
-  return db.get(
-    `INSERT INTO passkeys (id, user_id, public_key_spki, backed_up) VALUES ($passkey_id, $username, $public_key_spki, $backed_up);`,
-    {
-      $passkey_id: passkey.id,
-      $username: passkey.user_id,
-      $public_key_spki: passkey.public_key_spki,
-      $backed_up: passkey.backed_up,
-    }
-  );
+  return db
+    .prepare<{
+      passkey_id: Passkey["id"];
+      username: string;
+      public_key_spki: Passkey["public_key_spki"];
+      backed_up: Passkey["backed_up"];
+    }>(
+      `INSERT INTO passkeys (id, user_id, public_key_spki, backed_up) VALUES ($passkey_id, $username, $public_key_spki, $backed_up);`
+    )
+    .run({
+      passkey_id: passkey.id,
+      username: passkey.user_id,
+      public_key_spki: passkey.public_key_spki,
+      backed_up: passkey.backed_up,
+    });
 }
 
-export async function existingCredentialsForUserId(
+export function existingCredentialsForUserId(
   db: Database,
   userId: string
-): Promise<PublicKeyCredentialDescriptor[]> {
-  let passkeyIds = await db.all<{ id: Buffer }[]>(
-    "select id from passkeys where user_id = $userId",
-    { $userId: userId }
-  );
-
-  return passkeyIds.map(({ id }) => {
-    return { id, type: "public-key" };
-  });
+): PublicKeyCredentialDescriptor[] {
+  let passkeyIds = db
+    .prepare<{ userId: string }, PublicKeyCredentialDescriptor>(
+      "select id, 'public-key' as type from passkeys where user_id = $userId"
+    )
+    .all({ userId });
+  return passkeyIds;
 }
 
-export async function getPostForId(
-  db: Database,
-  postId: string
-): Promise<Post | undefined> {
-  return db.get(`SELECT * from posts where id = :id`, { ":id": postId });
+export function getPostForId(db: Database, postId: string): Post | undefined {
+  return db
+    .prepare<{ id: string }, Post>(`SELECT * from posts where id = :id`)
+    .get({ id: postId });
 }
 
-export async function getPostsByUsername(
-  db: Database,
-  username: string
-): Promise<Post[]> {
-  return db.all(
-    `SELECT *
+export function getPostsByUsername(db: Database, username: string): Post[] {
+  return db
+    .prepare<{ username: string }, Post>(
+      `SELECT *
     FROM posts
     WHERE posts.user_id = (
       SELECT id FROM users WHERE users.username = $username
     )
-    ORDER BY posts.created_on DESC`,
-    { $username: username }
-  );
+    ORDER BY posts.created_on DESC`
+    )
+    .all({ username });
 }
 type Post = {
   id: string;
@@ -372,12 +380,10 @@ type PostMedia = {
   media_meta: {};
 };
 
-export async function getAllMediaForPost(
-  db: Database,
-  postId: string
-): Promise<PostMedia[]> {
-  const media = await db.all(
-    `SELECT
+export function getAllMediaForPost(db: Database, postId: string): PostMedia[] {
+  const media = db
+    .prepare<{ post_id: string }, PostMedia>(
+      `SELECT
     posts.id AS post_id,
     posts.title AS post_title,
     posts.created_on AS post_created_on,
@@ -399,9 +405,9 @@ export async function getAllMediaForPost(
     ON media_id = mediadata.id
 
   WHERE posts.id = :post_id -- and media_id = file_meta.media_id
-`,
-    { ":post_id": postId }
-  );
+`
+    )
+    .all({ post_id: postId });
   return media;
 }
 
@@ -457,19 +463,23 @@ export async function insertOrFetchMetaFromMediaIdAtPath(
   path: string
 ): Promise<{ media_id: string; sharp_metadata: any }> {
   const start = +new Date();
-  const savedMeta = await db.get(
-    `
+  const savedMeta = db
+    .prepare<
+      { media_id: string; metadata_version: number },
+      { media_id: string; sharp_metadata: string }
+    >(
+      `
       SELECT media_id, sharp_metadata
       FROM file_meta
       WHERE
         media_id = :media_id
       AND
-        metadata_version = :metadata_version`,
-    {
-      ":media_id": mediaId,
-      ":metadata_version": METADATA_VERSION,
-    }
-  );
+        metadata_version = :metadata_version`
+    )
+    .get({
+      media_id: mediaId,
+      metadata_version: METADATA_VERSION,
+    });
   if (savedMeta) {
     console.log(`meta query finished in ${+new Date() - start}ms`);
 
@@ -489,19 +499,24 @@ export async function insertOrFetchMetaFromMediaIdAtPath(
     return { media_id: mediaId, sharp_metadata: {} };
   }
   console.log("parsed image with sharp");
-  const res = await db.run(
-    `
+  const res = db
+    .prepare<{
+      media_id: string;
+      sharp_metadata: any;
+      metadata_version: number;
+    }>(
+      `
     INSERT OR IGNORE INTO file_meta
     (media_id, sharp_metadata, metadata_version)
     VALUES
     (:media_id, :sharp_metadata, :metadata_version)
-  `,
-    {
-      ":media_id": mediaId,
-      ":sharp_metadata": JSON.stringify(meta),
-      ":metadata_version": METADATA_VERSION,
-    }
-  );
+  `
+    )
+    .run({
+      media_id: mediaId,
+      sharp_metadata: JSON.stringify(meta),
+      metadata_version: METADATA_VERSION,
+    });
   console.log(`meta query finished in ${+new Date() - start}ms`);
   return { media_id: mediaId, sharp_metadata: meta };
 }
@@ -557,8 +572,15 @@ export async function insertMediaForUser(
 
   for (const medium of updatedMedia) {
     try {
-      await db.run(
-        `
+      let res = db
+        .prepare<{
+          id: string;
+          user_id: string;
+          uri: string;
+          title: string | void;
+          caption: string | void;
+        }>(
+          `
         INSERT INTO media (
           id, 
           user_id, 
@@ -574,16 +596,16 @@ export async function insertMediaForUser(
           :caption,
           "stain"
         )
-      `,
-        {
-          ":id": medium.id,
-          ":user_id": userId,
-          ":uri": medium.uri,
-          ":title": medium.title,
-          ":caption": medium.caption,
+      `
+        )
+        .run({
+          id: medium.id,
+          user_id: userId,
+          uri: medium.uri,
+          title: medium.title,
+          caption: medium.caption,
           // TODO(marcos): make created_on variable here (need to find strftime)
-        }
-      );
+        });
     } catch (err) {
       console.error(
         `failed to create media with id: ${medium.id} and path ${medium.uri}`
@@ -600,15 +622,15 @@ export async function insertMediaForUser(
   
   throws if a post fails to insert
  */
-export async function insertPostForUser(
+export function insertPostForUser(
   db: Database,
   mediaIds: string[],
   userId: string
-): Promise<string> {
+): string {
   const id = nanoid.nanoid(5);
   const media = JSON.stringify(mediaIds);
   try {
-    await db.run(
+    db.prepare<{ id: string; user_id: string; media: string }>(
       `
       INSERT INTO posts (
         id,
@@ -623,13 +645,12 @@ export async function insertPostForUser(
         "",
         ""
       )
-    `,
-      {
-        ":id": id,
-        ":user_id": userId,
-        ":media": media,
-      }
-    );
+    `
+    ).run({
+      id: id,
+      user_id: userId,
+      media: media,
+    });
   } catch (err) {
     console.error(`Failed to create post with id ${id}, with media: ${media}`);
     console.error(err);
@@ -637,21 +658,20 @@ export async function insertPostForUser(
   return id;
 }
 
-export async function updateTitleForPost(
+export function updateTitleForPost(
   db: Database,
   postId: string,
   title: string
-): Promise<string> {
+): string {
   try {
-    await db.run(
+    db.prepare<{ title: string; postId: string }>(
       `
       UPDATE posts SET title = :title where id = :postId
-    `,
-      {
-        ":title": title,
-        ":postId": postId,
-      }
-    );
+    `
+    ).run({
+      title,
+      postId,
+    });
   } catch (err) {
     console.error(`failed to update title of post with id ${postId}`);
     console.error(err);
