@@ -1,5 +1,8 @@
-import {SessionData, Store} from 'express-session';
-import {Database} from 'sqlite';
+/**
+ *  an better-sqlite3 backed session store
+ */
+import { SessionData, Store } from "express-session";
+import { type Database } from "better-sqlite3";
 
 const noop = (_err?: unknown, _data?: any) => {};
 
@@ -7,34 +10,35 @@ export class InstaSessionStore extends Store {
   db: Database;
   sessionTableName: string;
 
-  constructor(db: Database, sessionTableName: string = '__sessions') {
+  constructor(db: Database, sessionTableName: string = "__sessions") {
     super();
     this.db = db;
     this.sessionTableName = sessionTableName;
     this._initDb();
   }
 
-  async _initDb() {
-    await this.db;
+  _initDb() {
+    this.db;
     let res;
     try {
-      res = await this.db.exec(`CREATE TABLE IF NOT EXISTS
+      res = this.db.exec(`CREATE TABLE IF NOT EXISTS
         ${this.sessionTableName} (
           id TEXT PRIMARY KEY,
           data TEXT default '{}'
-        )`)
-    } catch(err) {
-      console.error(err)
+        )`);
+    } catch (err) {
+      console.error(err);
     }
   }
 
-  async get(sessionId: string, cb = noop) {
+  get(sessionId: string, cb = noop) {
     let session;
-    try{
-      session = await this.db.get(
-      `SELECT id, data FROM ${this.sessionTableName} WHERE id = $id`,
-      {$id: sessionId},
-    )
+    try {
+      session = this.db
+        .prepare<{ id: string }, { id: string; data: string }>(
+          `SELECT id, data FROM ${this.sessionTableName} WHERE id = $id`
+        )
+        .get({ id: sessionId });
     } catch (err) {
       return cb(err);
     }
@@ -47,32 +51,39 @@ export class InstaSessionStore extends Store {
   async set(sessionId: string, session: SessionData, cb = noop) {
     let res;
     try {
-      res = await this.db.get(`INSERT INTO ${this.sessionTableName}
+      res = this.db
+        .prepare(
+          `INSERT INTO ${this.sessionTableName}
         (id, data)
         VALUES
         ($id, $data)
-        ON CONFLICT (id) DO UPDATE set data = $data`, {
-          $id: sessionId,
-          $data: JSON.stringify(session),
+        ON CONFLICT (id) DO UPDATE set data = $data`
+        )
+        .run({
+          id: sessionId,
+          data: JSON.stringify(session),
         });
-      console.log(`inserting a row with id: ${sessionId}, `, res)
+      console.log(`[session] inserting a row with id: ${sessionId}, `, res);
     } catch (err) {
       return cb(err);
     }
-    return cb()
+    return cb();
   }
 
   async destroy(sessionId: string, cb = noop) {
     let res;
     try {
-      res = await this.db.get(`DELETE from
+      res = this.db
+        .prepare(
+          `DELETE from
         ${this.sessionTableName}
         WHERE
-        id = $id`, {$id: sessionId})
+        id = $id`
+        )
+        .run({ id: sessionId });
     } catch (err) {
       return cb(err);
     }
-    return cb(null)
+    return cb(null);
   }
-
 }
