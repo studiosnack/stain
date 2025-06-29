@@ -1,4 +1,3 @@
-// import { Database } from "sqlite";
 import { type Database } from "better-sqlite3";
 
 import nanoid from "nanoid";
@@ -568,12 +567,12 @@ export function emptyMediaAtPath(path: string): Media {
   
   if successful returns an array of media ids in the database
  */
-export async function insertMediaForUser(
+export function insertMediaForUser(
   db: Database,
   media: Media[],
   userId: string,
   root_path: string
-): Promise<string[]> {
+): string[] {
   const updatedMedia = media.map((m) => {
     const uri = path.relative(root_path, m.uri);
     return { ...m, uri };
@@ -603,7 +602,7 @@ export async function insertMediaForUser(
           :uri,
           :title,
           :caption,
-          "stain"
+          'stain'
         )
       `
         )
@@ -651,8 +650,8 @@ export function insertPostForUser(
         :id,
         :user_id,
         :media,
-        "",
-        ""
+        '',
+        ''
       )
     `
     ).run({

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { VALIDATED_DOMAINS, PORT, MEDIA_PATH } from "../consts";
+import { VALIDATED_DOMAINS, PORT, ROOT_MEDIA_PATH } from "../consts";
 
 export function isValidOrigin(origin: string): Boolean {
   const testingOrigins = VALIDATED_DOMAINS ?? [`http://localhost:${PORT}`];
@@ -7,5 +7,5 @@ export function isValidOrigin(origin: string): Boolean {
 }
 
 export const pathToMedia = (uri: string) => {
-  return path.join(__dirname, "../", MEDIA_PATH, uri);
+  return path.join(ROOT_MEDIA_PATH, uri);
 };

@@ -3,12 +3,11 @@ node_modules
 misc_not_backedup
 .parcel_cache/*
 .parcel-cache/*
-insta.db
-insta.db-shm
-insta.db-wal
+insta.db*
 dist/*
 src/public/fonts/*.woff
 src/public/fonts/*.woff2
 media/*
 .nova
 .env.dev
+.env*

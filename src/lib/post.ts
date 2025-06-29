@@ -1,12 +1,13 @@
+//
+// a series of post utility methods that were
+// part of the original deno import scripts but
+// haven't been ported to the webapp
 import fs from "fs";
-// import { Database, Statement } from "sqlite3";
-// import { open, Database as PDatabase } from "sqlite";
 import BetterSqlite3 from "better-sqlite3";
 
 import nanoid from "nanoid";
 
-const DB_PATH = "insta.db";
-
+import { DB_PATH } from "../consts";
 type Post = {
   id: string;
   user_id: string;
@@ -21,7 +22,7 @@ type Post = {
   mentions: string[];
 };
 
-let db: BetterSqlite3.Database = new BetterSqlite3("insta.db");
+let db: BetterSqlite3.Database = new BetterSqlite3(DB_PATH);
 db.pragma("journal_mode = WAL");
 
 const postInsertQuery = db.prepare<{

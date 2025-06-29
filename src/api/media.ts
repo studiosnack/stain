@@ -77,7 +77,7 @@ function cachedStaticAssetIfPresentMiddleware(
 
     // media is guaranteed to exist because of above
     // middleware
-    const media = await models.getMediaById(req.db, req.params.media_id);
+    const media = models.getMediaById(req.db, req.params.media_id);
 
     req.media = media;
 
@@ -283,6 +283,8 @@ app.get(
       "can't reformat image with nonexistent path "
     );
     const outputFormat = req.accepts(["heic", "webp", "jpg"]);
+
+    console.log(`[XL]: emitting ${outputFormat}`);
 
     await sharp(pathToMedia(req.media.uri))
       .rotate()

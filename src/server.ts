@@ -7,13 +7,8 @@ import {
   SESSION_SECRET,
   VIEWS_DIR,
   DB_PATH,
-  MEDIA_PATH,
   ROOT_MEDIA_PATH,
   UPLOAD_PATH,
-  SMALL_RESIZE_PATH,
-  MEDIUM_RESIZE_PATH,
-  LARGE_RESIZE_PATH,
-  EXTRA_LARGE_RESIZE_PATH,
 } from "./consts";
 
 // express and middleware
@@ -152,6 +147,7 @@ const storage = multer.diskStorage({
       // only allow multer uploads per-user when logged in
       return cb(new Error("need to be logged in to upload media"), "");
     }
+    
     const now = new Date();
     const year = `${now.getFullYear()}`;
     const month = `${now.getMonth() + 1}`;
@@ -187,12 +183,20 @@ app.use(sess);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+console.log(`setting views dir to ${VIEWS_DIR}`)
 app.set("views", VIEWS_DIR);
 app.set("view engine", "pug");
 
 // health check
-app.get("health", (req, res) => {
+app.get("/health", (req, res) => {
   res.status(200).send("ok");
+});
+
+app.get("/.well-known/webauthn", (req, res) => {
+  console.log("fielding webauthn request");
+  res.json({
+    origins: ["https://snaps.orb.local", "https://snaps.studiosnack.net"],
+  });
 });
 
 app.use((req, res, next) => {
@@ -576,13 +580,13 @@ app.post(
       const postMedia = req.files.map((fileOb) => {
         return emptyMediaAtPath(fileOb.path);
       });
-      const mediaIds = await insertMediaForUser(
+      const mediaIds = insertMediaForUser(
         db,
         postMedia,
         req.user.id,
         ROOT_MEDIA_PATH
       );
-      const postId = await insertPostForUser(db, mediaIds, req.user.id);
+      const postId = insertPostForUser(db, mediaIds, req.user.id);
       res.redirect(`/p/${postId}`);
     }
   }
@@ -596,7 +600,7 @@ const hasUserOr404Middleware = async (
   next: NextFunction
 ) => {
   if (req.params.username?.trim() !== "") {
-    const user = await getUserByName(db, req.params.username);
+    const user = getUserByName(db, req.params.username);
     if (!user) {
       res.status(404).send("hc svnt dracones").end();
       return;
@@ -721,7 +725,7 @@ app.get("/", withUserMiddleware(db), async (req, res) => {
 });
 
 console.log(`listening of ${PORT}`);
-app.listen(PORT, "localhost");
+app.listen(PORT);
 
 function withUserMiddleware(db: BSDatabase) {
   // populates req.user if user is logged in
