@@ -61,7 +61,7 @@ async function actuallyStartConditionalRequestWithChallenge(
     publicKey: {
       challenge,
 
-      rpId: undefined, // SAME_AS_YOU_USED_FOR_REGISTRATION,
+      rpId: "localhost", // SAME_AS_YOU_USED_FOR_REGISTRATION,
     },
   };
   try {

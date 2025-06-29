@@ -56,3 +56,62 @@ this is basically designed around a single person or family, i haven't given muc
 
 - build the webserver `yarn build:watch`
 - run the webserver `find dist | entr -r node dist/server.js`
+
+## running
+
+the way i run this, inadvisedly, is to have a copy of this repo on a vps. i pull latest from github, i build it using yarn build:prod and then i run it via systemd.
+
+in particular, the most important parts of the systemd job are these
+
+```
+[Service]
+ExecReload=/bin/kill $MAINPID
+KillMode=control-group
+Restart=on-failure
+
+Environment=SESSION_SECRET="something different here"
+Environment=NODE_ENV=production
+
+; (this is just the git root)
+WorkingDirectory=/home/projects/stain
+; i run node via volta from the git root directly running dist/server.js
+ExecStart=/home/projects/.volta/bin/node dist/server.js
+```
+
+there are some flaws here, but
+
+## env file
+
+in dev, you can run with most parametrizable settings set by running
+
+```sh
+find dist | entr -r node --env-file .env.dev  dist/server.js
+```
+
+## docker
+
+i'm still soured on docker
+
+### development
+
+the idea is that we have a series of root mount points:
+/app - where the built/dist dir is mounted
+/work - where the src dir is mounted
+/media - where the media lives
+
+```sh
+docker build -t satin:linux --platform linux/amd64 .
+```
+
+```shell
+cp package.json dist/ && cp yarn.lock dist/ && \
+  docker run -it --rm \
+    -v $(pwd)/dist:/app \
+    -v $(pwd):/work \
+    -v $(pwd)/media:/media\
+    -w /app \
+    --platform linux/amd64 \
+    --name snaps \
+    satin:linux \
+    yarn run dev:docker
+```
