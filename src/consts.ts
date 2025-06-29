@@ -68,7 +68,7 @@ export const VALIDATED_DOMAINS = arrayFromEnvString(
 // This domain is, if included, used to create
 // backlinks to this install (i.e. in the json feed)
 // otherwise, most links are generated clientside
-// using the window location
+// using the window location or are relative to root
 export const PUBLIC_DOMAIN = "";
 // How many items are returned in the default feed
 export const FEED_PAGESIZE = 30;
@@ -78,7 +78,7 @@ export const SESSION_SECRET = process.env.SESSION_SECRET ?? "water in my head";
 // CONSTANTS
 export const VIEWS_DIR =
   pathFromEnvString(process.env.VIEWS_DIR) ?? path.join(__dirname, `/views`);
-export const DB_PATH = pathFromEnvString(process.env.DB_PATH) ?? "insta.db";
+export const DB_PATH = pathFromEnvString(process.env.DB_PATH) ?? path.join(__dirname,"../insta.db");
 
 // you should only set this relative to the build server
 // the current value is relative to dist

@@ -64,7 +64,7 @@ export function insertNewUser(
   db: Database,
   username: string,
   name: string = "",
-  invitingUserId: string | null
+  invitingUserId?: string | undefined | null
 ): User | undefined {
   const userId = nanoid.nanoid(5);
   db.prepare(
@@ -73,8 +73,8 @@ export function insertNewUser(
     id: userId,
     username: username,
     name: name,
-    enabled: true,
-    referenced_by: invitingUserId,
+    enabled: 1,
+    referenced_by: invitingUserId ?? null,
   });
   return getUserById(db, userId);
 }
@@ -162,9 +162,10 @@ const nanoInviteId = nanoid.customAlphabet(
 export function createInviteForUser(
   db: Database,
   recipientId: string,
-  senderId: string
+  senderId: string | null | undefined = null
 ): Invite | undefined {
   const code = `${nanoInviteId()}-${nanoInviteId()}`;
+  const args = { recipient_id: recipientId, "sender_id": senderId, code }
   db.prepare(
     `
     INSERT INTO invites (
@@ -176,7 +177,7 @@ export function createInviteForUser(
       :sender_id, 
       :code
     )`
-  ).run({ recipient_id: recipientId, ":sender_id": senderId, code });
+  ).run(args);
   return db
     .prepare<{ code: string }, Invite>(
       `select * from invites where code = :code`
@@ -309,6 +310,13 @@ export function getPasskeyById(db: Database, id: Buffer): Passkey | undefined {
 }
 
 export function insertNewPasskey(db: Database, passkey: Passkey) {
+  const args = {
+    passkey_id: passkey.id,
+    username: passkey.user_id,
+    public_key_spki: passkey.public_key_spki,
+    backed_up: passkey.backed_up ? 1 : 0,
+  }
+  console.log(args)
   return db
     .prepare<{
       passkey_id: Passkey["id"];
@@ -318,12 +326,7 @@ export function insertNewPasskey(db: Database, passkey: Passkey) {
     }>(
       `INSERT INTO passkeys (id, user_id, public_key_spki, backed_up) VALUES ($passkey_id, $username, $public_key_spki, $backed_up);`
     )
-    .run({
-      passkey_id: passkey.id,
-      username: passkey.user_id,
-      public_key_spki: passkey.public_key_spki,
-      backed_up: passkey.backed_up,
-    });
+    .run(args);
 }
 
 export function existingCredentialsForUserId(
