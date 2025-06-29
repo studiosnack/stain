@@ -16,10 +16,8 @@ import express from "express";
 import session from "express-session";
 import { InstaSessionStore } from "./lib/insta-session.js";
 import multer from "multer";
-import pug from "pug";
 import nanoid from "nanoid";
 
-import * as fs from "node:fs/promises";
 import * as fsSync from "node:fs";
 import path from "node:path";
 
@@ -36,10 +34,6 @@ if (!uploadStat?.isDirectory()) {
 
 import Database, { type Database as BSDatabase } from "better-sqlite3";
 
-// for image metadata
-import sharp from "sharp";
-import exifReader from "exif-reader";
-
 import {
   inviteDataFromCode,
   existingCredentialsForUserId,
@@ -49,10 +43,8 @@ import {
   insertNewPasskey,
   getAllMediaForPost,
   insertOrFetchMetaFromMediaIdAtPath,
-  getMediaById,
   getPostsByUsername,
   getUserById,
-  fileMetaFromPath,
   emptyMediaAtPath,
   insertMediaForUser,
   insertPostForUser,
@@ -85,13 +77,28 @@ function bootstrapDb() {
   let db: BSDatabase | undefined;
   let instaStore: InstaSessionStore | undefined;
 
-  // db = await open<Database, Statement>({
-  //   filename: DB_PATH,
-  //   driver: Database,
-  // });
+  // bootstrap tables if db path doesn't exist
+  let runBootstrap = !fsSync.existsSync(DB_PATH);
+
   db = Database(DB_PATH);
   db.pragma("journal_mode = WAL");
   db.pragma("synchronous = NORMAL");
+
+  if (runBootstrap) {
+    const bootstrapSql = fsSync.readFileSync(
+      path.join(__dirname, "sql/bootstrap.sql"),
+      "utf8"
+    );
+    db.exec(bootstrapSql);
+    const newUser = insertNewUser(db, "me", "first user");
+    if (newUser) {
+      const newInvite = createInviteForUser(db, newUser.id);
+      if (newInvite) {
+        console.log(`Invited first user (@${newUser.name})`)
+        console.log(`-> Complete signup at http://localhost:${PORT}/signup/${newInvite.code}`)
+      }
+    }
+  }
 
   instaStore = new InstaSessionStore(db);
   return { db, instaStore };
@@ -147,7 +154,7 @@ const storage = multer.diskStorage({
       // only allow multer uploads per-user when logged in
       return cb(new Error("need to be logged in to upload media"), "");
     }
-    
+
     const now = new Date();
     const year = `${now.getFullYear()}`;
     const month = `${now.getMonth() + 1}`;
@@ -183,7 +190,7 @@ app.use(sess);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-console.log(`setting views dir to ${VIEWS_DIR}`)
+console.log(`setting views dir to ${VIEWS_DIR}`);
 app.set("views", VIEWS_DIR);
 app.set("view engine", "pug");
 
@@ -413,7 +420,7 @@ app.post(
         return;
       }
 
-      const newUser = await insertNewUser(
+      const newUser = insertNewUser(
         db,
         req.body.requested_handle,
         req.body.common_name,
@@ -430,7 +437,14 @@ app.post("/register", upload.none(), async (req, res) => {
   const { username, passkey_id, code, pubkey, authdata } = req.body;
 
   // first find the code, ignore expired whatever for now
-  const inviteData = await inviteDataFromCode(db, code);
+  const inviteData = inviteDataFromCode(db, code);
+  if (!inviteData) {
+    return
+  }
+  const invitedUser = getUserByName(db, inviteData?.recipient_username)
+  if (!invitedUser) {
+    return
+  }
   const authData = parseAuthData(atou8(authdata));
 
   if (!inviteData) {
@@ -449,11 +463,11 @@ app.post("/register", upload.none(), async (req, res) => {
   }
 
   // TODO put this in a txn
-  const dbres = await activateInvite(db, code);
+  const dbres = activateInvite(db, code);
 
-  const insertRes = await insertNewPasskey(db, {
+  const insertRes = insertNewPasskey(db, {
     id: Buffer.from(authData.credentialId),
-    username: inviteData.recipient_username,
+    user_id: invitedUser?.id,
     public_key_spki: Buffer.from(atou8(pubkey)),
     backed_up: authData.backupState,
   });
