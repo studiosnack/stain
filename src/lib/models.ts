@@ -316,13 +316,12 @@ export function insertNewPasskey(db: Database, passkey: Passkey) {
     public_key_spki: passkey.public_key_spki,
     backed_up: passkey.backed_up ? 1 : 0,
   }
-  console.log(args)
   return db
     .prepare<{
       passkey_id: Passkey["id"];
       username: string;
       public_key_spki: Passkey["public_key_spki"];
-      backed_up: Passkey["backed_up"];
+      backed_up: number
     }>(
       `INSERT INTO passkeys (id, user_id, public_key_spki, backed_up) VALUES ($passkey_id, $username, $public_key_spki, $backed_up);`
     )
