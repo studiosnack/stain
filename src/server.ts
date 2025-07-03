@@ -95,7 +95,7 @@ function bootstrapDb() {
       const newInvite = createInviteForUser(db, newUser.id);
       if (newInvite) {
         console.log(`Invited first user (@${newUser.name})`)
-        console.log(`-> Complete signup at http://localhost:${PORT}/signup/${newInvite.code}`)
+        console.log(`-> Complete signup at ${VALIDATED_DOMAINS[0]}/signup/${newInvite.code}`)
       }
     }
   }
