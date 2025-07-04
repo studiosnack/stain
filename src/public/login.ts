@@ -60,8 +60,10 @@ async function actuallyStartConditionalRequestWithChallenge(
 
     publicKey: {
       challenge,
-
-      rpId: "localhost", // SAME_AS_YOU_USED_FOR_REGISTRATION,
+      rpId: undefined,
+      // TODO: if VALIDATE_DOMAINS is set, we should
+      // set this to the first domain on the list
+      // rpId: "localhost", // SAME_AS_YOU_USED_FOR_REGISTRATION,
     },
   };
   try {

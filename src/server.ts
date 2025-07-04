@@ -83,6 +83,10 @@ function bootstrapDb() {
   db = Database(DB_PATH);
   db.pragma("journal_mode = WAL");
   db.pragma("synchronous = NORMAL");
+  process.on('exit', () => db.close());
+  process.on('SIGHUP', () => process.exit(128 + 1));
+  process.on('SIGINT', () => process.exit(128 + 2));
+  process.on('SIGTERM', () => process.exit(128 + 15));
 
   if (runBootstrap) {
     const bootstrapSql = fsSync.readFileSync(
@@ -318,11 +322,12 @@ app.post("/login", upload.none(), async (req, res) => {
     }
   }
 
-  const passkeyData = await getPasskeyById(db, Buffer.from(atou8(rawId)));
+  const passkeyData = getPasskeyById(db, Buffer.from(atou8(rawId)));
 
   // bail if we don't have a matching passkey (could prompt
   // for acct recovery in this case or just treat it like a bad login)
   if (!passkeyData) {
+    console.warn('no matching passkey found')
     res.status(401).end();
     return;
   }
@@ -337,6 +342,7 @@ app.post("/login", upload.none(), async (req, res) => {
   );
 
   if (!webResult) {
+    console.warn('failed to validate webauthn creds')
     res.status(401).end();
     return;
   }
