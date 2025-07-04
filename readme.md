@@ -57,6 +57,8 @@ this is basically designed around a single person or family, i haven't given muc
 - build the webserver `yarn build:watch`
 - run the webserver `find dist | entr -r node dist/server.js`
 
+in macos, i find that heif support is really weird to get working correctly, i sometimes have a build that works and sometimes i don't, i'm not patient enough to debug it.
+
 ## running
 
 the way i run this, inadvisedly, is to have a copy of this repo on a vps. i pull latest from github, i build it using yarn build:prod and then i run it via systemd.
@@ -90,28 +92,64 @@ find dist | entr -r node --env-file .env.dev  dist/server.js
 
 ## docker
 
-i'm still soured on docker
+i'm still soured on docker so a lot of this is kicking and screaming
 
 ### development
 
 the idea is that we have a series of root mount points:
-/app - where the built/dist dir is mounted
-/work - where the src dir is mounted
 /media - where the media lives
+/db - wherever the db sqlite file lives
 
-```sh
-docker build -t satin:linux --platform linux/amd64 .
+**building sharp** in order for this whole docker thing to work, i need to build sharp using a really beefy image but i don't want to ship that. that image installs a ton of tooling so that i can effectively generate custom linked sharp packages. in order to do that, node:alpine needs:
+
+```
+build-base vips vips-heif vips-jxl libheif vips-dev
 ```
 
+and you need a package.json with
+
+```
+node-addon-api node-gyp sharp
+```
+
+simply installing all those with all the build reqs will cause sharp to build itself correctly.
+
+**preparing** i have a node-alpine image i have built
+that installs a little bit extra for the purposes of getting heif support working, it looks like this:
+
+i call this image 'node-vips' and it's really not clear whether or not i gain anything from using it instead of just using this at the top of my real dockerfile...
+```Dockerfile
+FROM node:20-alpine
+
+RUN apk add \
+  vips vips-cpp vips-heif vips-jxl \
+  libheif libde265 libdav1d libavif
+
+CMD node
+```
+
+**building** i use this to build the local instance. take a look at the dockerfile to see what is set here
+```sh
+docker build --no-cache -t satin:2.0 --platform linux/amd64 .
+```
+
+if using orbstack to dev, you can run like this using orbstack volumes. the benefit on a mac at least of using orbstack is that you get the https proxy 'for free' and you get a nice-ish ui for interacting with the volumes for db/media, but i mean, you don't need to use it, docker will do just fine you just want to make sure that the first validated domain on the list is the one you intend to use to access the instance:
+
+**running** this is what i use to run the instance
+
 ```shell
-cp package.json dist/ && cp yarn.lock dist/ && \
-  docker run -it --rm \
-    -v $(pwd)/dist:/app \
-    -v $(pwd):/work \
-    -v $(pwd)/media:/media\
-    -w /app \
-    --platform linux/amd64 \
-    --name snaps \
-    satin:linux \
-    yarn run dev:docker
+npm run via:orbstack
+```
+
+which is shorthand for the following:
+
+```shell
+docker run -it --rm \
+  -v media:/media -v db:/db \
+  -p 3000:3000 \
+  --env DB_ROOT="/db" \
+  --env VALIDATED_DOMAINS="https://loco.orb.local http://localhost:3000" \
+  --platform linux/amd64 \
+  --name loco 
+  satin:2.0
 ```

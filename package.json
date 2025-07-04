@@ -13,8 +13,8 @@
     "build:watch": "swc --only \"**/*.ts\" --copy-files --strip-leading-paths --out-dir dist --watch src",
     "build:docker": "docker build -t satin:latest .",
     "build:tagged-docker": "docker build -t satin:2.0 --platform linux/amd64 .",
-    "run:docker": "",
-    "dev:docker": "yarn install --verbose > yarn-install.log 2>&1 && find /app | entr -r node --env-file-if-exists /work/.env.skane /app/server.js"
+    "dev:docker": "yarn install --verbose > yarn-install.log 2>&1 && find /app | entr -r node --env-file-if-exists /work/.env.skane /app/server.js",
+    "via:orbstack": "docker run -it --rm -v media:/media -v db:/db  -p 3000:3000 --env DB_ROOT='/db' --env VALIDATED_DOMAINS='https://loco.orb.local http://localhost:3000' --platform linux/amd64 --name loco satin:2.0"
   },
   "targets": {
     "frontend": {
