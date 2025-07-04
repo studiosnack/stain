@@ -165,7 +165,7 @@ export function createInviteForUser(
   senderId: string | null | undefined = null
 ): Invite | undefined {
   const code = `${nanoInviteId()}-${nanoInviteId()}`;
-  const args = { recipient_id: recipientId, "sender_id": senderId, code }
+  const args = { recipient_id: recipientId, sender_id: senderId, code };
   db.prepare(
     `
     INSERT INTO invites (
@@ -305,7 +305,7 @@ export function getPasskeyById(db: Database, id: Buffer): Passkey | undefined {
   return db
     .prepare<{ id: Buffer }, Passkey>(`SELECT * FROM passkeys where id = $id`)
     .get({
-      id: id,
+      id,
     });
 }
 
@@ -315,13 +315,13 @@ export function insertNewPasskey(db: Database, passkey: Passkey) {
     username: passkey.user_id,
     public_key_spki: passkey.public_key_spki,
     backed_up: passkey.backed_up ? 1 : 0,
-  }
+  };
   return db
     .prepare<{
       passkey_id: Passkey["id"];
       username: string;
       public_key_spki: Passkey["public_key_spki"];
-      backed_up: number
+      backed_up: number;
     }>(
       `INSERT INTO passkeys (id, user_id, public_key_spki, backed_up) VALUES ($passkey_id, $username, $public_key_spki, $backed_up);`
     )
