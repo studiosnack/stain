@@ -5,8 +5,8 @@ misc_not_backedup
 .parcel-cache/*
 insta.db*
 dist/*
-src/public/fonts/*.woff
-src/public/fonts/*.woff2
+src/public/styles/type/*.woff
+src/public/styles/type/*.woff2
 media/*
 .nova
 .env.dev

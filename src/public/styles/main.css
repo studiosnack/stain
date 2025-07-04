@@ -1,5 +1,5 @@
-@import url("fonts/md.css");
-@import url("fonts/lapidar.css");
+@import url("/styles/type/md.css");
+@import url("/styles/type/lapidar.css");
 
 :root {
   --bg-color-light: #fdfdfd;
