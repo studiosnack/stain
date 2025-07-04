@@ -5,13 +5,7 @@ html
     meta(charset="utf-8")
     meta(name="viewport" content="width=device-width, initial-scale=1")
 
-    link(rel="stylesheet" href="/styles.css")
-
-    unless user.username
-      script.
-        window.ascii_challenge = "#{challenge}";
-      script(src="/login.js" defer)
-
+    link(rel="stylesheet" href="/styles/main.css")
 
   body.main
     p
@@ -20,13 +14,7 @@ html
         a(href="/logout") logout?
 
     ul
-      unless user.username
-        li
-          form
-            div
-              button(type="submit", id="login_button" value="login").
-                login?
-
+      
       if user.username
         li
           | your photos 
