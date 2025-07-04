@@ -363,13 +363,24 @@ app.post("/login", upload.none(), async (req, res) => {
   res.send("ok").status(200).end();
 });
 
-// GET /login
-app.get("/login", async (req, res) => {
+const genNonce = (length = 32) => {
   const challenge = new Uint8Array(32);
   crypto.getRandomValues(challenge);
-  req.session.challenge = u8toa(challenge);
+  return u8toa(challenge)
+}
 
-  res.render("login", { challenge: req.session.challenge });
+// GET /login
+app.get("/login", async (req, res) => {
+  // const challenge = new Uint8Array(32);
+  // crypto.getRandomValues(challenge);
+  req.session.challenge = genNonce(32)
+  const nonce = genNonce(32);
+
+  res.set({
+    "Content-Security-Policy": `default-src 'none'; script-src 'self' 'nonce-${nonce}'; style-src 'self'; img-src 'self' data:; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; connect-src 'self'`,
+  })
+
+  res.render("login", { challenge: req.session.challenge, nonce });
 });
 
 // GET /logout
@@ -725,22 +736,20 @@ app.get("/", withUserMiddleware(db), async (req, res) => {
   let usersToInvite: User[] = [];
   let usersToPromote: User[] = [];
   let invitedUsers: InvitedUser[] = [];
+  if (!req.user) {
+    return res.redirect('/login')
+  }
+  
   if (req.user != null && req.user.referenced_by == null) {
-    usersToInvite = await getInvitableUsers(db, req.user.id);
-    usersToPromote = await getReferencedUsers(db, req.user.id);
-    invitedUsers = await selectInvitedUsers(db, req.user.id);
-  } else {
-    const challenge = new Uint8Array(32);
-    crypto.getRandomValues(challenge);
-    req.session.challenge = u8toa(challenge);
+    usersToInvite = getInvitableUsers(db, req.user.id);
+    usersToPromote = getReferencedUsers(db, req.user.id);
+    invitedUsers = selectInvitedUsers(db, req.user.id);
   }
   res.render("main", {
-    user: req.user ?? {},
+    user: req.user,
     usersToInvite,
     usersToPromote,
     invitedUsers,
-    // possibly null
-    challenge: req.session.challenge,
   });
 });
 
