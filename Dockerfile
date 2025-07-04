@@ -1,4 +1,8 @@
-FROM node-vips:latest
+FROM node:20-alpine
+
+RUN apk add \
+  vips vips-cpp vips-heif vips-jxl \
+  libheif libde265 libdav1d libavif
 
 RUN mkdir /app
 WORKDIR /app
