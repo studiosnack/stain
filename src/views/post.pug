@@ -7,6 +7,9 @@ head
 
   meta(property="description"  content=postTitle)
   meta(property="og:description"  content=post.title)
+  
+  if canonicalUrl
+    link(href=canonicalUrl rel="alternate" type="application/activity+json")
 
   each im, idx in media
     meta(property="og:image"  content=`${origin}/m/m/${im.media_id}`)
