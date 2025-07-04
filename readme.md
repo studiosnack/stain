@@ -114,10 +114,10 @@ node-addon-api node-gyp sharp
 
 simply installing all those with all the build reqs will cause sharp to build itself correctly.
 
-**preparing** i have a node-alpine image i have built
-that installs a little bit extra for the purposes of getting heif support working, it looks like this:
+**actual runtime deps** 
 
-i call this image 'node-vips' and it's really not clear whether or not i gain anything from using it instead of just using this at the top of my real dockerfile...
+the only things this image installs that are novel over just vanilla node:alpine are the following, i used to have a base image that just had this in it, but now i've just moved this into the dockerfile directly
+
 ```Dockerfile
 FROM node:20-alpine
 
@@ -153,3 +153,21 @@ docker run -it --rm \
   --name loco 
   satin:2.0
 ```
+
+**via ghcr**
+
+this repo builds to ghrc on merges to master and during prs, but the built image does not include webfonts, you have to basically infer what those would look like and mount that dir. in the running container.
+
+```shell
+docker pull ghcr.io/studiosnack/stain:latest
+docker run -it --rm \
+  -v media:/media -v db:/db \
+  -p 3000:3000 \
+  --env DB_ROOT="/db" \
+  --env VALIDATED_DOMAINS="https://your.domain http://localhost:3000" \
+  --platform linux/amd64 \
+  --name stain
+  ghcr.io/studiosnack/stain:latest
+```
+
+although you will notice that the build also includes tagged images for specific commits and prs

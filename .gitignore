@@ -11,3 +11,4 @@ media/*
 .nova
 .env.dev
 .env*
+src/deprecated/*
