@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20-alpine3.23
 
 RUN apk add \
   vips vips-cpp vips-heif vips-jxl \
@@ -11,11 +11,14 @@ COPY package.json prod.config.json tsconfig.json .swcrc .
 COPY packages packages
 COPY src src
 
-RUN npm pkg set dependencies.sharp="file:./packages/sharp-0.34.2.tgz" \
-  dependencies.@img/sharp-linuxmusl-x64="file:./packages/img-sharp-linuxmusl-x64-0.34.2.tgz"\
-  dependencies.@img/sharp-libvips-linuxmusl-x64="file:./packages/img-sharp-libvips-linuxmusl-x64-1.1.0.tgz"
+# overrides for local sharp in particular, prevents
+# post install script on locally built version
+RUN npm pkg set \
+  dependencies.sharp="./packages/sharp-0.34.5.tgz" \
+  overrides.sharp.scripts={}
 
 RUN npm install --omit=dev
+
 RUN npm run build:prod
 
 # this is the default and it's possible you might

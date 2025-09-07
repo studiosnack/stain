@@ -387,7 +387,7 @@ type PostMedia = {
   media_uri: string;
   media_title: string;
   media_caption: string;
-  media_meta: {};
+  media_meta: string;
 };
 
 export function getAllMediaForPost(db: Database, postId: string): PostMedia[] {
