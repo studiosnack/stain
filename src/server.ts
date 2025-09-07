@@ -199,18 +199,18 @@ app.set("views", VIEWS_DIR);
 app.set("view engine", "pug");
 
 // health check
-app.get("/health", (req, res) => {
+app.get("/health", (_req, res) => {
   res.status(200).send("ok");
 });
 
-app.get("/.well-known/webauthn", (req, res) => {
+app.get("/.well-known/webauthn", (_req, res) => {
   console.log("fielding webauthn request");
   res.json({
     origins: ["https://snaps.orb.local", "https://snaps.studiosnack.net"],
   });
 });
 
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   req.db = db;
   next();
 });
@@ -222,7 +222,7 @@ console.log(`static assets served from: ${static_public_dir}`);
 app.use(
   // Set content type headers for hif/heif/heic images
   express.static(`${static_public_dir}`, {
-    setHeaders(res, path, stat) {
+    setHeaders(res, path, _stat) {
       if (path.endsWith(".heic")) {
         res.set("Content-Type", "image/heic");
       }
@@ -347,7 +347,7 @@ app.post("/login", upload.none(), async (req, res) => {
     return;
   }
 
-  const userid_req = await getUserById(db, passkeyData.user_id);
+  const userid_req = getUserById(db, passkeyData.user_id);
   if (!userid_req) {
     // not sure how we ended up here: have a valid passkey, but no user in the db
     // maybe this is an account that got renamed
@@ -364,7 +364,7 @@ app.post("/login", upload.none(), async (req, res) => {
 });
 
 const genNonce = (length = 32) => {
-  const challenge = new Uint8Array(32);
+  const challenge = new Uint8Array(length);
   crypto.getRandomValues(challenge);
   return u8toa(challenge)
 }
@@ -397,7 +397,7 @@ app.get("/logout", (req, res) => {
 
 // GET /signup/:code
 app.get("/signup/:code", async (req, res) => {
-  const inviteData = await inviteDataFromCode(db, req.params.code);
+  const inviteData =  inviteDataFromCode(db, req.params.code);
 
   if (!inviteData) {
     res.status(404).send("invite not found").end();
@@ -405,7 +405,7 @@ app.get("/signup/:code", async (req, res) => {
   }
 
   // get existing passkeys here:
-  const existingCredentials = await existingCredentialsForUserId(
+  const existingCredentials = existingCredentialsForUserId(
     db,
     inviteData.recipient_username
   );
@@ -427,7 +427,7 @@ app.get("/signup/:code", async (req, res) => {
 app.post(
   "/register/username",
   withUserMiddleware(db),
-  async (req, res, next) => {
+  async (req, res, _next) => {
     if (req.user != null && req.user.referenced_by == null) {
       if (
         req.body.requested_handle == null &&
@@ -480,35 +480,36 @@ app.post("/register", upload.none(), async (req, res) => {
   }
 
   // TODO put this in a txn
-  const dbres = activateInvite(db, code);
+  activateInvite(db, code);
 
-  const insertRes = insertNewPasskey(db, {
+  insertNewPasskey(db, {
     id: Buffer.from(authData.credentialId),
     user_id: invitedUser?.id,
     public_key_spki: Buffer.from(atou8(pubkey)),
     backed_up: authData.backupState,
   });
+  
   // '/' includes login
-  res.redirect("/");
+  res.redirect("/login");
 });
 
-app.put("/p/:post_id/title", withUserMiddleware(db), async (req, res, next) => {
-  const post = await getPostForId(db, req.params.post_id);
+app.put("/p/:post_id/title", withUserMiddleware(db), (req, res) => {
+  const post = getPostForId(db, req.params.post_id);
   if (req.user != null && post?.user_id === req.user.id) {
-    const nextTitle = await updateTitleForPost(db, post.id, req.body.title);
-    return res
+    const nextTitle = updateTitleForPost(db, post.id, req.body.title);
+    res
       .set({ "content-type": "application/json" })
       .send({ title: nextTitle })
       .end();
   } else {
-    return res.sendStatus(403).send("hc svnt dracones");
+    res.sendStatus(403).send("hc svnt dracones");
   }
 });
 
-app.get("/p/:post_id/meta", withUserMiddleware(db), async (req, res, next) => {
-  const post = await getPostForId(db, req.params.post_id);
+app.get("/p/:post_id/meta", withUserMiddleware(db), async (req, res) => {
+  const post = getPostForId(db, req.params.post_id);
 
-  let media = await getAllMediaForPost(db, req.params.post_id);
+  let media = getAllMediaForPost(db, req.params.post_id);
   media = media.map((m) => ({
     ...m,
     media_meta: JSON.parse(m.media_meta),
@@ -534,7 +535,7 @@ app.get("/p/:post_id/meta", withUserMiddleware(db), async (req, res, next) => {
 // GET /p/:post_id
 // renders an individual post
 app.get("/p/:post_id", withUserMiddleware(db), async (req, res) => {
-  let media = await getAllMediaForPost(db, req.params.post_id);
+  let media = getAllMediaForPost(db, req.params.post_id);
   media = media.map((m) => ({ ...m, media_meta: JSON.parse(m.media_meta) }));
 
   let meta = await Promise.all(
@@ -558,7 +559,7 @@ app.get("/p/:post_id", withUserMiddleware(db), async (req, res) => {
   const { origin } = reqUrl;
 
   if (media.length > 0) {
-    const user = await getUserById(db, media[0].post_user_id);
+    const user = getUserById(db, media[0].post_user_id);
 
     const post = {
       title: media[0].post_title,
@@ -591,7 +592,8 @@ app.get("/p/:post_id", withUserMiddleware(db), async (req, res) => {
 //
 app.get("/upload", withUserMiddleware(db), (req, res) => {
   if (!req.user?.id) {
-    return res.send("hc svnt dracones").end();
+    res.send("hc svnt dracones").end();
+    return;
   }
   res.render("upload", { user: req.user ?? {} });
   return;
@@ -663,13 +665,14 @@ app.get("/:username/feed.json", hasUserOr404Middleware, async (req, res) => {
   let { username, after } = req.params;
   username = username.trim();
 
-  const allPosts = await getPostsByUsername(db, username);
+  const allPosts = getPostsByUsername(db, username);
   let items = [];
   let requestHost = `${req.protocol}://${req.hostname}`;
   let hostedUrl = `${requestHost}/${username}/feed.json`;
 
   let title = `${req.params.username} ✕ fotos`;
   let version = "https://jsonfeed.org/version/1";
+  
   // TODO use the proper var for this domain
   let home_page_url = `${requestHost}/${username}`;
   let feed_url = `${home_page_url}/feed.json`;

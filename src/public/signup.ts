@@ -76,57 +76,6 @@ const signupHandler = async (evt: SubmitEvent) => {
   }
 };
 
-// authData here is a Uint8Array
-function parseAuthData(authData: Uint8Array) {
-  // see https://w3c.github.io/webauthn/#sctn-authenticator-data
-  const rpiHash = new Uint8Array(authData.buffer, 0, 32);
-
-  const flags = authData[32];
-  const [
-    userPresent,
-    rfu1,
-    userVerified,
-    backupEligible,
-    backupState,
-    rfu2,
-    atPresent,
-    edPresent,
-  ] = [
-    flags & 1,
-    (flags >> 1) & 1,
-    (flags >> 2) & 1,
-    (flags >> 3) & 1,
-    (flags >> 4) & 1,
-    (flags >> 5) & 1,
-    (flags >> 6) & 1,
-    (flags >> 7) & 1,
-  ];
-
-  // attested credential data starts at offset 33
-  // https://w3c.github.io/webauthn/#sctn-attested-credential-data
-  const signCount = new DataView(
-    new Uint8Array(authData.buffer, 33, 4).buffer
-  ).getUint32();
-
-  const aaguid = new Uint8Array(authData.buffer, 37, 16);
-  const credentialIdLength = new DataView(authData.buffer, 53, 2).getUint16();
-
-  const credentialId = new Uint8Array(authData.buffer, 55, credentialIdLength);
-  const credentialIdB64 = u8toa(credentialId);
-
-  return {
-    userPresent,
-    userVerified,
-    backupEligible,
-    backupState,
-    atPresent,
-    edPresent,
-    signCount,
-    aaguid,
-    credentialId,
-    credentialIdB64,
-  };
-}
 // @ts-ignore
 const atou8 = (b64ascii: string): Uint8Array =>
   Uint8Array.from(atob(b64ascii), (c) => c.charCodeAt(0));
