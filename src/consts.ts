@@ -69,7 +69,7 @@ export const VALIDATED_DOMAINS = arrayFromEnvString(
 // backlinks to this install (i.e. in the json feed)
 // otherwise, most links are generated clientside
 // using the window location or are relative to root
-export const PUBLIC_DOMAIN = "";
+export const PUBLIC_DOMAIN = process.env.PUBLIC_DOMAIN ?? VALIDATED_DOMAINS[0];
 // How many items are returned in the default feed
 export const FEED_PAGESIZE = 30;
 

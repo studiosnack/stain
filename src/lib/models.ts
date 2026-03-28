@@ -346,9 +346,9 @@ export function getPostForId(db: Database, postId: string): Post | undefined {
     .get({ id: postId });
 }
 
-export function getPostsByUsername(db: Database, username: string): Post[] {
+export function getPostsByUsername(db: Database, username: string): RenderablePost[] {
   return db
-    .prepare<{ username: string }, Post>(
+    .prepare<{ username: string }, Post & {mediaCount: number; firstMediaItem: number}>(
       `SELECT 
         id, 
         media, 
@@ -364,7 +364,11 @@ export function getPostsByUsername(db: Database, username: string): Post[] {
     )
     ORDER BY posts.created_on DESC`
     )
-    .all({ username });
+    .all({ username }).map(p => ({
+      ...p, 
+      media: JSON.parse(p.media), 
+      created_on: new Date(Number(p.created_on)*1000).toISOString()
+    }));
 }
 type Post = {
   id: string;
@@ -372,7 +376,18 @@ type Post = {
   title?: string;
   caption?: string;
   user_id: string;
-  created_on?: number;
+  created_on: string;
+};
+
+type RenderablePost = {
+  id: string;
+  media: string[];
+  title?: string;
+  caption?: string;
+  user_id: string;
+  created_on: string;
+  mediaCount: number; 
+  firstMediaItem: number
 };
 
 type PostMedia = {

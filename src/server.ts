@@ -662,23 +662,22 @@ app.get("/:username", hasUserOr404Middleware, async (req, res) => {
 });
 
 app.get("/:username/feed.json", hasUserOr404Middleware, async (req, res) => {
-  let { username, after } = req.params;
+  let { username} = req.params;
+  let { after } = req.query;
   username = username.trim();
 
   const allPosts = getPostsByUsername(db, username);
   let items = [];
-  let requestHost = `${req.protocol}://${req.hostname}`;
-  let hostedUrl = `${requestHost}/${username}/feed.json`;
+  const baseUrl = PUBLIC_DOMAIN ?? `${req.protocol}://${req.hostname}`;
+  let feed_url = `${baseUrl}/${username}/feed.json`;
 
   let title = `${req.params.username} ✕ fotos`;
-  let version = "https://jsonfeed.org/version/1";
+  let version = "https://jsonfeed.org/version/1.1";
   
-  // TODO use the proper var for this domain
-  let home_page_url = `${requestHost}/${username}`;
-  let feed_url = `${home_page_url}/feed.json`;
+  let home_page_url = `${baseUrl}/${username}`;
 
   let startIndex = 0;
-  let afterKey = after?.trim() ?? "";
+  let afterKey = after ?? "";
   if (afterKey !== "") {
     // if key isn't present, this defaults to starting at 0
     startIndex = allPosts.findIndex((post) => post.id === afterKey) + 1;
@@ -691,7 +690,11 @@ app.get("/:username/feed.json", hasUserOr404Middleware, async (req, res) => {
   }
   items = allPosts.slice(startIndex, stopIndex).map((post) => ({
     id: post.id,
-    url: `${requestHost}/p/${post.id}`,
+    url: `${baseUrl}/p/${post.id}`,
+    content_text: post.caption ?? undefined,
+    content_html: `<html><body>`+post.media.map(m => `<p><img src="${baseUrl}/m/l/${m}"></p>`).join('')+`</body></html>`,
+    image: `${baseUrl}/m/m/${post.firstMediaItem}`,
+    date_published: post.created_on
   }));
 
   res.set({ "content-type": "application/feed+json" }).json({
@@ -703,10 +706,10 @@ app.get("/:username/feed.json", hasUserOr404Middleware, async (req, res) => {
     authors: [
       {
         name: username,
-        url: `${hostedUrl}/${username}`,
+        url: `${baseUrl}/${username}`,
       },
     ],
-    items: items,
+    items,
   });
 });
 
