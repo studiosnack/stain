@@ -15,7 +15,8 @@
     "build:orbstack": "docker build --platform linux/amd64 -t satin:latest .",
     "build:tagged-docker": "docker build -t satin:2.0 --platform linux/amd64 .",
     "dev:docker": "yarn install --verbose > yarn-install.log 2>&1 && find /app | entr -r node --env-file-if-exists /work/.env.skane /app/server.js",
-    "via:orbstack": "docker --context orbstack run -it --rm -v media:/media -v db:/db  -p 3000:3000 --env DB_ROOT='/db' --env VALIDATED_DOMAINS='https://loco.orb.local http://localhost:3000' --platform linux/amd64 --name loco satin:latest"
+    "via:orbstack": "docker --context orbstack run -it --rm -v media:/media -v db:/db  -p 3000:3000 --env DB_ROOT='/db' --env VALIDATED_DOMAINS='https://loco.orb.local http://localhost:3000' --platform linux/amd64 --name loco satin:latest",
+    "via:watchorbstack": "docker --context orbstack run -it --rm -v media:/media -v db:/db -v $HOME/projects/insta/dist:/app/dist --env DB_ROOT='/db' --env VALIDATED_DOMAINS='https://loco.orb.local http://localhost:3000' --platform linux/amd64 --name loco satin:latest"
   },
   "targets": {
     "frontend": {

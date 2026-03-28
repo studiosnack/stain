@@ -36,7 +36,7 @@ const app = express.Router();
 app.use(withDbMiddleware);
 
 // guarantees that a :media_id exists, both
-async function backingMediaPresentMiddleware(
+function backingMediaPresentMiddleware(
   req: ExpressRequest,
   res: ExpressResponse,
   next: NextFunction
@@ -44,7 +44,7 @@ async function backingMediaPresentMiddleware(
   invariant(req.db, "database missing");
   invariant(req.params.media_id, "can't check for media without id");
 
-  const media = await models.getMediaById(req.db, req.params.media_id);
+  const media = models.getMediaById(req.db, req.params.media_id);
 
   if (media) {
     const mediapath = pathToMedia(media.uri);
@@ -53,11 +53,13 @@ async function backingMediaPresentMiddleware(
     });
 
     if (!mediaExistsAtPath) {
-      return res.status(404).send(`maiores desvnt: ${mediapath}`);
+      res.status(404).send(`maiores desvnt: ${mediapath}`);
+      return;
     }
     next();
   } else {
-    return res.status(404).send("hc svnt dracones");
+    res.status(404).send("hc svnt dracones");
+    return;
   }
 }
 
@@ -124,7 +126,8 @@ function cachedStaticAssetIfPresentMiddleware(
     console.log(`request for output format: ${outputFormat}`);
     if (!outputFormat) {
       // unacceptable!
-      return res.status(406).send("ingratvm").end();
+      res.status(406).send("ingratvm").end();
+      return;
     }
 
     const resizedMediaPath = path.format({
@@ -157,7 +160,7 @@ app.get(
   "/o/:media_id",
   withUserMiddleware,
   backingMediaPresentMiddleware,
-  async (req: ExpressRequest, res: ExpressResponse) => {
+  (req: ExpressRequest, res: ExpressResponse) => {
     invariant(req.db, "database missing");
 
     invariant(req.media, "can't render media without... media?");
@@ -261,7 +264,7 @@ app.get(
       .rotate()
       .resize({ width: 2000, withoutEnlargement: true })
       // @ts-ignore this is a correct format
-      .toFormat(outputFormat)
+      .toFormat(outputFormat, outputFormat === 'heic' ? {compression: 'av1'} : undefined)
       .toFile(req.resizedMediaPath);
 
     res.sendFile(req.resizedMediaPath, {
