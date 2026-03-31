@@ -23,7 +23,7 @@ body
           sizes=`(min-width: 800px) 250px, 360px`
         )
         div.postCaptions
-          - let pubDate = new Date(post.created_on * 1000)
+          - let pubDate = new Date(post.created_on)
           p.postDate
             = `${pubDate.getFullYear()}`
           if post.title
