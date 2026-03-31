@@ -18,15 +18,17 @@ function boolFromEnvString(
     : true;
 }
 
+function numberFromEnvString(val: string | undefined, backup: number): number;
+function numberFromEnvString(val: string | undefined, backup?: undefined): number | undefined;
 function numberFromEnvString(
   val: string | undefined,
-  backup: number | undefined = undefined
+  backup: number | undefined
 ): number | undefined {
   val = val?.trim();
   if (String(Number(val)) === val?.trim()) {
     return Number(val);
   }
-  return undefined;
+  return backup;
 }
 
 function arrayFromEnvString(val: string | undefined): string[] | undefined {
@@ -49,7 +51,7 @@ function pathFromEnvString(val: string | undefined): string | undefined {
   }
 }
 
-export const PORT = numberFromEnvString(process.env.PORT) ?? 3_000;
+export const PORT = numberFromEnvString(process.env.PORT, 3_000);
 // whether or not to validate domains (disable if you're having domain issues)
 export const VALIDATE_DOMAIN =
   boolFromEnvString(process.env.VALIDATE_DOMAIN) ?? false;
@@ -71,7 +73,7 @@ export const VALIDATED_DOMAINS = arrayFromEnvString(
 // using the window location or are relative to root
 export const PUBLIC_DOMAIN = process.env.PUBLIC_DOMAIN ?? VALIDATED_DOMAINS[0];
 // How many items are returned in the default feed
-export const FEED_PAGESIZE = 30;
+export const FEED_PAGESIZE = numberFromEnvString(process.env.FEED_PAGESIZE, 10);
 
 export const SESSION_SECRET = process.env.SESSION_SECRET ?? "water in my head";
 

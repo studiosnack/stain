@@ -6,6 +6,7 @@ import sharp from "sharp";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import exifReader from "exif-reader";
+import { access } from "node:fs";
 
 const METADATA_VERSION = 5;
 
@@ -393,6 +394,7 @@ type RenderablePost = {
 type PostMedia = {
   post_id: string;
   post_title: string;
+  post_caption: string;
   post_created_on: string;
   post_meta: { [key: string]: any };
   post_user_id: string;
@@ -411,6 +413,7 @@ export function getAllMediaForPost(db: Database, postId: string): PostMedia[] {
       `SELECT
     posts.id AS post_id,
     posts.title AS post_title,
+    posts.caption AS post_caption,
     posts.created_on AS post_created_on,
     posts.user_id AS post_user_id,
     posts.metadata AS post_meta,
@@ -433,7 +436,117 @@ export function getAllMediaForPost(db: Database, postId: string): PostMedia[] {
 `
     )
     .all({ post_id: postId });
-  return media;
+  return media.map(m => ({...m, media_meta: JSON.parse(m.media_meta),}));
+}
+
+type FancyPostMedia = {
+  id: string;
+  title: string;
+  caption: string;
+  published_on: Date;
+  meta: { [key: string]: any };
+  user_id: string;
+
+  media: {
+    id: string;
+    created_on: Date;
+    title: string;
+    caption: string;
+    metadata: { [key: string]: any };
+  }[];
+};
+
+/**
+ * returns all media and metadata for a user's posts
+ *
+ * this is meant to be used as part of a paginated api, 
+ * for the 'front page' use `getAllMediaForPost` instead.
+ * For a paginated request, this gives you everything you
+ * need to render a set of posts, including parsed exif data.
+ *
+ * This query is not exactly fast, but it's not prohibitively 
+ * slow either, the main issue is that the metadata is quite
+ * large, so it returns quite a bit of data you may not need.
+ */
+export function getAllUserMedia(
+  db: Database, 
+  username: string, 
+  after: string | null, 
+  limit: number = 10
+): FancyPostMedia[] {
+  const media = db.prepare<{
+    username: string, 
+    after: string|null, 
+    limit: number, 
+    metadata_version: number
+  }, PostMedia>(
+    `WITH paginated_posts AS (
+      SELECT posts.id
+      FROM posts
+      JOIN users
+        ON posts.user_id = users.id
+        AND users.username = :username
+      WHERE (
+        :after IS NULL
+        OR posts.created_on < (
+          SELECT created_on FROM posts WHERE id = :after
+        )
+      )
+      ORDER BY posts.created_on DESC
+      LIMIT :limit
+    )
+    
+    SELECT
+      posts.id             AS post_id,
+      posts.title          AS post_title,
+      posts.caption        AS post_caption,
+      posts.user_id        AS user_id,
+      posts.published_on   AS post_created_on,
+      json_array_length(posts.media) AS mediaCount,
+    
+      mediapost.value      AS media_id,
+    
+      mediadata.created_on AS m_co,
+      mediadata.title      AS media_title,
+      mediadata.caption    AS media_caption,
+      mediadata.metadata   AS media_meta,
+    
+      filemeta.sharp_metadata    AS media_meta
+    
+    FROM posts
+    JOIN paginated_posts
+      ON posts.id = paginated_posts.id
+    JOIN json_each(posts.media) AS mediapost
+    LEFT JOIN media AS mediadata
+      ON mediapost.value = mediadata.id
+    LEFT JOIN file_meta AS filemeta
+      ON filemeta.media_id = mediadata.id
+      AND filemeta.metadata_version = :metadata_version
+    
+    ORDER BY posts.created_on DESC`
+  ).all({username, after, limit, metadata_version: METADATA_VERSION})
+  
+  return media.reduce((acc: FancyPostMedia[], curr: PostMedia) => {
+    const lastEntry = acc[acc.length - 1];
+    const media = {
+      id: curr.media_id, 
+      created_on: new Date( Number(curr.m_co) * 1_000), 
+      title: curr.media_title, 
+      caption: curr.media_caption, 
+      metadata: JSON.parse(curr.media_meta)
+    };
+    if (lastEntry?.id === curr.post_id) {
+      lastEntry.media.push(media)
+    } else {
+      acc.push({
+        id: curr.post_id, 
+        title: curr.post_title, 
+        caption: curr.post_caption, 
+        published_on: new Date( Number(curr.post_created_on) * 1_000), 
+        user_id: curr.post_user_id, meta: curr.post_meta, media: [media] })
+    }
+    return acc;
+  }, []);
 }
 
 function parseMedia(media: { metadata: string }): {} {

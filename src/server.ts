@@ -17,6 +17,7 @@ import session from "express-session";
 import { InstaSessionStore } from "./lib/insta-session.js";
 import multer from "multer";
 import nanoid from "nanoid";
+import pug from 'pug';
 
 import * as fsSync from "node:fs";
 import path from "node:path";
@@ -60,6 +61,7 @@ import {
   type User,
   type InvitedUser,
   type Media,
+  getAllUserMedia,
 } from "./lib/models.js";
 
 import {
@@ -78,11 +80,12 @@ function bootstrapDb() {
   let instaStore: InstaSessionStore | undefined;
 
   // bootstrap tables if db path doesn't exist
-  let runBootstrap = !fsSync.existsSync(DB_PATH);
+  let runBootstrap = DB_PATH == null || !fsSync.existsSync(DB_PATH);
 
   db = Database(DB_PATH);
   db.pragma("journal_mode = WAL");
   db.pragma("synchronous = NORMAL");
+  db.pragma('busy_timeout = 5000');
   process.on('exit', () => db.close());
   process.on('SIGHUP', () => process.exit(128 + 1));
   process.on('SIGINT', () => process.exit(128 + 2));
@@ -510,10 +513,6 @@ app.get("/p/:post_id/meta", withUserMiddleware(db), async (req, res) => {
   const post = getPostForId(db, req.params.post_id);
 
   let media = getAllMediaForPost(db, req.params.post_id);
-  media = media.map((m) => ({
-    ...m,
-    media_meta: JSON.parse(m.media_meta),
-  }));
 
   const allMeta = await Promise.all(
     media.map((foto) =>
@@ -536,7 +535,6 @@ app.get("/p/:post_id/meta", withUserMiddleware(db), async (req, res) => {
 // renders an individual post
 app.get("/p/:post_id", withUserMiddleware(db), async (req, res) => {
   let media = getAllMediaForPost(db, req.params.post_id);
-  media = media.map((m) => ({ ...m, media_meta: JSON.parse(m.media_meta) }));
 
   let meta = await Promise.all(
     media.map((foto) =>
@@ -661,12 +659,26 @@ app.get("/:username", hasUserOr404Middleware, async (req, res) => {
   });
 });
 
+const itemTemplate = pug.compile(`
+div
+  if caption
+    p= caption
+  each item in items
+    p 
+      if item.title
+        strong= item.title
+      img(src=baseUrl + '/m/m/' + item.id, alt=(item.title !== '') ? item.title : undefined)
+      if item.caption
+        figcaption= item.caption
+`,{doctype: 'html'});
+
+
+// jsonfeed here
 app.get("/:username/feed.json", hasUserOr404Middleware, async (req, res) => {
   let { username} = req.params;
   let { after } = req.query;
   username = username.trim();
 
-  const allPosts = getPostsByUsername(db, username);
   let items = [];
   const baseUrl = PUBLIC_DOMAIN ?? `${req.protocol}://${req.hostname}`;
   let feed_url = `${baseUrl}/${username}/feed.json`;
@@ -676,25 +688,23 @@ app.get("/:username/feed.json", hasUserOr404Middleware, async (req, res) => {
   
   let home_page_url = `${baseUrl}/${username}`;
 
-  let startIndex = 0;
-  let afterKey = after ?? "";
-  if (afterKey !== "") {
-    // if key isn't present, this defaults to starting at 0
-    startIndex = allPosts.findIndex((post) => post.id === afterKey) + 1;
-  }
-  let stopIndex = Math.min(startIndex + FEED_PAGESIZE, allPosts.length);
-  let next_url = undefined;
-  if (stopIndex <= allPosts.length) {
-    let stopKey = allPosts.at(stopIndex - 1)?.id as string;
+  let afterKey = (after != null && after != '') ? String(after) : null;
+  
+  const allPosts = getAllUserMedia(db, username, afterKey, FEED_PAGESIZE + 1);
+  let next_url;
+  if (allPosts.length > FEED_PAGESIZE) {
+    const stopKey = allPosts[FEED_PAGESIZE-1].id;
     next_url = `${feed_url}?after=${stopKey}`;
   }
-  items = allPosts.slice(startIndex, stopIndex).map((post) => ({
+    
+  items = allPosts.slice(0, FEED_PAGESIZE).map((post) => ({
     id: post.id,
     url: `${baseUrl}/p/${post.id}`,
-    content_text: post.caption ?? undefined,
-    content_html: `<html><body>`+post.media.map(m => `<p><img src="${baseUrl}/m/l/${m}"></p>`).join('')+`</body></html>`,
-    image: `${baseUrl}/m/m/${post.firstMediaItem}`,
-    date_published: post.created_on
+    title: post.title ?? undefined,
+    content_text: post.title?.trim() !== '' ? post.title : post.caption?.trim() !== '' ? post.caption?.trim : undefined,
+    content_html: itemTemplate({items: post.media, title: post.title, caption: post.caption, baseUrl}),
+    image: `${baseUrl}/m/m/${post.media[0].id}`,
+    date_published: post.published_on
   }));
 
   res.set({ "content-type": "application/feed+json" }).json({
@@ -706,7 +716,7 @@ app.get("/:username/feed.json", hasUserOr404Middleware, async (req, res) => {
     authors: [
       {
         name: username,
-        url: `${baseUrl}/${username}`,
+        url: home_page_url
       },
     ],
     items,
@@ -719,22 +729,6 @@ function* chonk<T>(arr: T[], size = 3): Generator<T[], void, T[]> {
     yield arr.slice(i * size, (i + 1) * size);
   }
 }
-
-// GET /:username
-//
-//   app.get("/u/:username", async (req, res) => {
-//     if (req.params.username?.trim() !== "") {
-//       const user = await getUserByName(db, req.params.username);
-//       if (!user) {
-//         res.status(404).send("hc svnt dracones").end();
-//         return;
-//       }
-//
-//       const allPosts = await getPostsByUsername(db, req.params.username);
-//
-//       res.render("all_posts", { allPosts: [...chonk(allPosts, 9)], user });
-//     }
-//   });
 
 // GET /
 //

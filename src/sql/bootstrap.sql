@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS posts (
   location text -- a fkey to a location 
 );
 
+CREATE INDEX IF NOT EXISTS idx_posts_user_created ON posts(user_id, created_on DESC);
 
 -- users are both login users and referenced users i.e. for at-mentions
 
