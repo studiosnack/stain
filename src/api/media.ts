@@ -141,7 +141,7 @@ function cachedStaticAssetIfPresentMiddleware(
     const resizedMediaStat = fsSync.statSync(resizedMediaPath, {
       throwIfNoEntry: false,
     });
-    if (resizedMediaStat?.isFile() && req.query?.force !== "1") {
+    if (resizedMediaStat?.isFile() && req.query?.force !== "1" && req.user != null) {
       res.sendFile(resizedMediaPath, {
         headers: { "Content-Type": `image/${outputFormat}` },
       });
