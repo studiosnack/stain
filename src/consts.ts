@@ -69,7 +69,7 @@ export const VALIDATED_DOMAINS = arrayFromEnvString(
 ];
 // This domain is, if included, used to create
 // backlinks to this install (i.e. in the json feed)
-// otherwise, most links are generated clientside
+// otherwise, most links are generated client-side
 // using the window location or are relative to root
 export const PUBLIC_DOMAIN = process.env.PUBLIC_DOMAIN ?? VALIDATED_DOMAINS[0];
 // How many items are returned in the default feed
@@ -77,9 +77,14 @@ export const FEED_PAGESIZE = numberFromEnvString(process.env.FEED_PAGESIZE, 10);
 
 export const SESSION_SECRET = process.env.SESSION_SECRET ?? "water in my head";
 
+if (SESSION_SECRET === "water in my head") {
+  console.warn(`[session]: session secret not changed from default`)
+}
+
 // CONSTANTS
 export const VIEWS_DIR =
   pathFromEnvString(process.env.VIEWS_DIR) ?? path.join(__dirname, `/views`);
+
 export const DB_PATH =
   process.env.DB_NAME != null && process.env.DB_ROOT != null
     ? pathFromEnvString(path.join(process.env.DB_ROOT, process.env.DB_NAME))

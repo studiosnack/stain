@@ -209,7 +209,7 @@ app.get("/health", (_req, res) => {
 app.get("/.well-known/webauthn", (_req, res) => {
   console.log("fielding webauthn request");
   res.json({
-    origins: ["https://snaps.orb.local", "https://snaps.studiosnack.net"],
+    origins: VALIDATED_DOMAINS,
   });
 });
 
@@ -299,11 +299,13 @@ app.post("/login", upload.none(), async (req, res) => {
 
   if (cdj.type !== "webauthn.get") {
     res.status(401).send(`bad webauthn type: ${cdj.type}`);
+    return;
   }
   // there's not a good reason to support this imo, but
   // maybe somebody will suggest a reason
   if (cdj.crossOrigin === true) {
     res.status(401).send(`crossOrigin logins not permitted`);
+    return;
   }
   // check domain, optionally
   if (VALIDATED_DOMAINS.includes(cdj.origin)) {
@@ -316,6 +318,7 @@ app.post("/login", upload.none(), async (req, res) => {
   } else {
     if (VALIDATE_DOMAIN) {
       res.status(401).send(`bad cdj origin: ${cdj.origin}`);
+      return
     } else {
       console.log(
         `client data json origin (${

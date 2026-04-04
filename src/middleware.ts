@@ -6,8 +6,15 @@ import type {
   NextFunction,
 } from "express";
 
-import { Database as PDatabase } from "sqlite";
+import {type Database} from 'better-sqlite3';
 import invariant from "./lib/mini-invariant";
+
+declare namespace Express {
+    interface Request {
+        user?: models.User;
+        db?: Database;
+    }
+}
 
 export function withDbMiddleware(
   req: ExpressRequest,
@@ -18,7 +25,7 @@ export function withDbMiddleware(
     res.status(500).send("de notitia abiit");
     return;
   }
-  next();
+  return next();
 }
 
 export async function sessionContainsUserMiddleware(
@@ -33,7 +40,7 @@ export async function sessionContainsUserMiddleware(
       req.user = user;
     }
   }
-  next();
+  return next();
 }
 
 /**
@@ -53,5 +60,5 @@ export async function withUserMiddleware(
       req.user = user;
     }
   }
-  next();
+  return next();
 }
