@@ -4,23 +4,16 @@ import {
   VALIDATED_DOMAINS,
   PUBLIC_DOMAIN,
   FEED_PAGESIZE,
-  SESSION_SECRET,
   VIEWS_DIR,
-  DB_PATH,
   ROOT_MEDIA_PATH,
   UPLOAD_PATH,
 } from "./consts";
 
 // express and middleware
 import express from "express";
-import session from "express-session";
-import { InstaSessionStore } from "./lib/insta-session.js";
-import multer from "multer";
-import nanoid from "nanoid";
 import pug from 'pug';
 
 import * as fsSync from "node:fs";
-import path from "node:path";
 
 import { app as mediaApp } from "./api/media";
 import { app as adminApp } from "./api/admin";
@@ -33,7 +26,7 @@ if (!uploadStat?.isDirectory()) {
   console.log(`- upload directory found at path ${UPLOAD_PATH}`);
 }
 
-import Database, { type Database as BSDatabase } from "better-sqlite3";
+import { type Database as BSDatabase } from "better-sqlite3";
 
 import {
   inviteDataFromCode,
@@ -75,48 +68,6 @@ import {
 
 import { isValidOrigin, pathToMedia } from "./lib/utils";
 
-function bootstrapDb() {
-  let db: BSDatabase | undefined;
-  let instaStore: InstaSessionStore | undefined;
-
-  // bootstrap tables if db path doesn't exist
-  let runBootstrap = DB_PATH == null || !fsSync.existsSync(DB_PATH);
-
-  db = Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-  db.pragma("synchronous = NORMAL");
-  db.pragma('busy_timeout = 5000');
-  process.on('exit', () => db.close());
-  process.on('SIGHUP', () => process.exit(128 + 1));
-  process.on('SIGINT', () => process.exit(128 + 2));
-  process.on('SIGTERM', () => process.exit(128 + 15));
-
-  if (runBootstrap) {
-    const bootstrapSql = fsSync.readFileSync(
-      path.join(__dirname, "sql/bootstrap.sql"),
-      "utf8"
-    );
-    db.exec(bootstrapSql);
-    const newUser = insertNewUser(db, "me", "first user");
-    if (newUser) {
-      const newInvite = createInviteForUser(db, newUser.id);
-      if (newInvite) {
-        console.log(`Invited first user (@${newUser.name})`)
-        console.log(`-> Complete signup at ${VALIDATED_DOMAINS[0]}/signup/${newInvite.code}`)
-      }
-    }
-  }
-
-  instaStore = new InstaSessionStore(db);
-  return { db, instaStore };
-}
-
-declare module "express-session" {
-  interface SessionData {
-    challenge?: any;
-    userId?: string;
-  }
-}
 
 import type {
   Request as ExpressRequest,
@@ -153,47 +104,20 @@ type ParsedClientDataJson = {
   type: "webauthn.get" | "webauthn.create";
 };
 
-const { db, instaStore } = bootstrapDb();
-// Multer middleware
-const storage = multer.diskStorage({
-  destination: function (req, _res, cb) {
-    if (req.user?.id == null) {
-      // only allow multer uploads per-user when logged in
-      return cb(new Error("need to be logged in to upload media"), "");
-    }
+// when initializing the db connection, we _know_ if we had to 
+// create the db and we export that here as runBootstrap
+import db, {runBootstrap} from './db'
 
-    const now = new Date();
-    const year = `${now.getFullYear()}`;
-    const month = `${now.getMonth() + 1}`;
-    const dest = path.join(UPLOAD_PATH, req.user.id, year, month);
-    fsSync.mkdirSync(dest, { recursive: true });
-    cb(null, dest);
-  },
-  filename: function (_req, file, cb) {
-    const uniqueSuffix = nanoid.nanoid(5);
-    cb(null, `${file.fieldname}-${uniqueSuffix}-${file.originalname}`);
-  },
-});
-const upload = multer({ storage });
+import {initializeDb} from './bootstrap';
+if (runBootstrap) {
+  initializeDb()
+}
 
-// Session Middleware
-const sess = session({
-  name: "insta",
-  store: instaStore,
-  secret: SESSION_SECRET,
-  saveUninitialized: false,
-  resave: false,
-  cookie: {
-    path: "/",
-    httpOnly: true,
-    secure: false,
-    maxAge: 30 * 86_400 * 1000,
-  },
-});
+import {withInstaSession, upload, withUserMiddleware} from './middleware'
 
 // App goes here
 const app = express();
-app.use(sess);
+app.use(withInstaSession());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -432,7 +356,7 @@ app.get("/signup/:code", async (req, res) => {
 
 app.post(
   "/register/username",
-  withUserMiddleware(db),
+  withUserMiddleware,
   async (req, res, _next) => {
     if (req.user != null && req.user.referenced_by == null) {
       if (
@@ -499,7 +423,7 @@ app.post("/register", upload.none(), async (req, res) => {
   res.redirect("/login");
 });
 
-app.put("/p/:post_id/title", withUserMiddleware(db), (req, res) => {
+app.put("/p/:post_id/title", withUserMiddleware, (req, res) => {
   const post = getPostForId(db, req.params.post_id);
   if (req.user != null && post?.user_id === req.user.id) {
     const nextTitle = updateTitleForPost(db, post.id, req.body.title);
@@ -512,7 +436,7 @@ app.put("/p/:post_id/title", withUserMiddleware(db), (req, res) => {
   }
 });
 
-app.get("/p/:post_id/meta", withUserMiddleware(db), async (req, res) => {
+app.get("/p/:post_id/meta", withUserMiddleware, async (req, res) => {
   const post = getPostForId(db, req.params.post_id);
 
   let media = getAllMediaForPost(db, req.params.post_id);
@@ -536,7 +460,7 @@ app.get("/p/:post_id/meta", withUserMiddleware(db), async (req, res) => {
 
 // GET /p/:post_id
 // renders an individual post
-app.get("/p/:post_id", withUserMiddleware(db), async (req, res) => {
+app.get("/p/:post_id", withUserMiddleware, async (req, res) => {
   let media = getAllMediaForPost(db, req.params.post_id);
 
   let meta = await Promise.all(
@@ -591,7 +515,7 @@ app.get("/p/:post_id", withUserMiddleware(db), async (req, res) => {
 
 // GET /upload
 //
-app.get("/upload", withUserMiddleware(db), (req, res) => {
+app.get("/upload", withUserMiddleware, (req, res) => {
   if (!req.user?.id) {
     res.send("hc svnt dracones").end();
     return;
@@ -602,7 +526,7 @@ app.get("/upload", withUserMiddleware(db), (req, res) => {
 
 app.post(
   "/upload",
-  withUserMiddleware(db),
+  withUserMiddleware,
   upload.array("fotos"),
 
   async (req, res) => {
@@ -735,7 +659,7 @@ function* chonk<T>(arr: T[], size = 3): Generator<T[], void, T[]> {
 
 // GET /
 //
-app.get("/", withUserMiddleware(db), async (req, res) => {
+app.get("/", withUserMiddleware, async (req, res) => {
   let usersToInvite: User[] = [];
   let usersToPromote: User[] = [];
   let invitedUsers: InvitedUser[] = [];
@@ -759,19 +683,3 @@ app.get("/", withUserMiddleware(db), async (req, res) => {
 console.log(`listening of ${PORT}`);
 app.listen(PORT);
 
-function withUserMiddleware(db: BSDatabase) {
-  // populates req.user if user is logged in
-  return async function (
-    req: ExpressRequest,
-    res: ExpressResponse,
-    next: NextFunction
-  ) {
-    if (req.session.userId) {
-      let user = await getUserById(db, req.session.userId);
-      if (user) {
-        req.user = user;
-      }
-    }
-    next();
-  };
-}
