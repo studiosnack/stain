@@ -1,8 +1,9 @@
-FROM node:20-alpine3.23
+FROM node:26-alpine3.24
 
-RUN apk add \
+RUN apk add --no-cache \
   vips vips-cpp vips-heif vips-jxl \
-  libheif libde265 libdav1d libavif
+  libheif libheif-x265 libheif-aom \
+  libde265 libdav1d libavif
 
 RUN mkdir /app
 WORKDIR /app
@@ -18,6 +19,9 @@ RUN npm pkg set \
   overrides.sharp.scripts={}
 
 RUN npm install --omit=dev
+
+# try to load sharp and encode a small image to verify it works
+RUN node -e "require('sharp')({create:{width:16,height:16,channels:3,background:'red'}}).heif({compression:'hevc'}).toBuffer().then(()=>console.log('heic encode ok'))"
 
 RUN npm run build:prod
 
