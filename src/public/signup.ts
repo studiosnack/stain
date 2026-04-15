@@ -166,8 +166,16 @@ const getPassKeyOptions = (
       challenge: new Uint8Array([0]),
 
       authenticatorSelection: {
-        authenticatorAttachment: "platform",
-        requireResidentKey: true,
+        // setting authenticatorAttachment to platform prevents the use of third party keys
+        // and so is going to be disabled here. previously (like in 2023 or whenever i started this)
+        // it was the case that not setting this allowed chrome to store the keys locally and 
+        // did not provide a way for them to be synced.
+        // authenticatorAttachment: "platform",
+        // in contrast, the only way to create a passkey these days is to ensure that the value
+        // for residentKey is 'required', this makes the passkey 'discoverable' but will mean that
+        // each passkey will use up a single slot in what may be a finite number of resident key
+        // slots in devices like yubikeys (typically 100)
+        residentKey: "required",
       },
 
       // Three minutes.

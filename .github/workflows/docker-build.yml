@@ -16,13 +16,14 @@ jobs:
     permissions:
       contents: read
       packages: write
+      pull-requests: write
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Log in to Container Registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
@@ -30,7 +31,7 @@ jobs:
 
     - name: Extract metadata (tags, labels) for Docker
       id: meta
-      uses: docker/metadata-action@v5
+      uses: docker/metadata-action@v6
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
@@ -40,10 +41,43 @@ jobs:
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Docker image
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v7
       with:
         platforms: linux/amd64
         context: .
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+    
+    - name: Show Docker image info
+      id: image_info
+      env:
+        REGISTRY: ${{ env.REGISTRY }}
+        IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        OWNER: ${{ github.repository_owner }}
+        TAGS: ${{ steps.meta.outputs.tags }}
+      run: |
+        PKG_NAME="${IMAGE_NAME##*/}"
+        PKG_URL="https://github.com/${OWNER}/packages/container/package/${PKG_NAME}"
+    
+        echo "Image pushed to: ${REGISTRY}/${IMAGE_NAME}"
+        echo "GHCR package page: ${PKG_URL}"
+    
+        {
+          echo "### 🐳 Docker Image Details"
+          echo "- **Image Name:** \`${REGISTRY}/${IMAGE_NAME}\`"
+          echo "- **Registry Page:** [View Package on GHCR](${PKG_URL})"
+          echo "- **Tags Pushed:**"
+          echo "${TAGS}" | while read -r tag; do
+            [ -n "$tag" ] && echo "  - \`${tag}\`"
+          done
+        } | tee -a "$GITHUB_STEP_SUMMARY" > comment.md
+    
+        echo "pkg_url=${PKG_URL}" >> "$GITHUB_OUTPUT"
+    
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: docker-image
+        path: comment.md
