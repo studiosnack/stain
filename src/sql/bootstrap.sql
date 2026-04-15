@@ -61,10 +61,19 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE passkeys (
   id BLOB PRIMARY KEY,
-  user_id STRING NOT NULL,
+  user_id TEXT NOT NULL,
   public_key_spki BLOB,
   backed_up BOOLEAN,
-  FOREIGN KEY(user_id) REFERENCES users(id));
+  alg INTEGER, 
+  aaguid BLOB, 
+  sign_count INTEGER NOT NULL DEFAULT 0, 
+  backup_eligible BOOLEAN, 
+  transports TEXT, 
+  name TEXT, 
+  created_on TEXT, 
+  last_used_on TEXT,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
 
 CREATE TABLE IF NOT EXISTS invites (
   id integer primary key, -- the id of the invite
