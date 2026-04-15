@@ -33,6 +33,7 @@ app.post(
   requiresLoggedInUser,
   async (req: ExpressRequest, res: ExpressResponse) => {
     invariant(req.db, "can't access user without db");
+    invariant(req.user, "need a user")
 
     const userToInvite = models.getUserById(req.db, req.body.userId);
     if (!userToInvite) {
@@ -54,6 +55,7 @@ app.post(
   requiresLoggedInUser,
   async (req: ExpressRequest, res: ExpressResponse) => {
     invariant(req.db, "can't access user without db");
+    invariant(req.user, "need a user")
 
     const userToPromote = models.getUserById(req.db, req.body.userId);
     if (!userToPromote) {
@@ -67,7 +69,7 @@ app.post(
       req.db.prepare(`UPDATE users set enabled = 1 where id = :enabledId`).run({
         ":enabledId": userToPromote?.id,
       });
-    } catch (err) {
+    } catch (_err) {
       res.status(500).send("ista qvidem vis est!");
       return;
     }
@@ -82,12 +84,17 @@ app.post(
   requiresLoggedInUser,
   async (req: ExpressRequest, res: ExpressResponse) => {
     invariant(req.db, "can't access user without db");
-
+    invariant(req.user, "need a user")
+    
     const oldUsername = req.user.username;
     const newUsername = req.body.updated_un;
     const newUser = models.updateUsername(req.db, req.user.id, newUsername);
+    if (!newUser) {
+      res.status(500).send("ista qvidem vis est!");
+      return
+    }
     console.log(
-      `updated username ${oldUsername}(${req.user.id}) -> ${newUsername}`
+      `updated username ${oldUsername}(${req.user.id}) -> ${newUser?.name}`
     );
 
     res.redirect("/");
@@ -101,6 +108,7 @@ app.post(
 
   async (req: ExpressRequest, res: ExpressResponse) => {
     invariant(req.db, "can't access user without db");
+    invariant(req.user, "need a user")
 
     const oldUsername = req.user.username;
     const newUsername = req.body.updated_cn;
