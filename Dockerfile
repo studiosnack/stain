@@ -29,7 +29,7 @@ ENV VIEWS_DIR=/app/dist/views
 
 # These should all probably be changed for actual deployments
 ENV NODE_ENV=development
-ENV VALIDATE_DOMAINS=false
+ENV VALIDATE_DOMAIN=false
 ENV VALIDATED_DOMAINS="http://localhost:3000"
 # these two should be mount paths, but you can probably
 # in dev, you should use DB_PATH
